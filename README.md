@@ -45,7 +45,7 @@ Orange **X** spaces start a battle: everyone pays into a pot and the minigame wi
 
 ## Dev shortcuts
 
-- `?debug=board&turns=10`: board game with four CPUs
+- `?debug=board&turns=10&board=western`: board game with four CPUs (`pirate`, `western` or `space`)
 - `?debug=minigame&id=bumper&play=1`: loop one minigame (`play=1` gives you seat 1)
 - `?debug=ending`: results screen with sample numbers
 - `?speed=4`: run the game faster

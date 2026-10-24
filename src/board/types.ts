@@ -27,8 +27,12 @@ export interface BoardDef {
   buildScenery(scene: THREE.Scene, spaces: Space[]): void;
   /** Animated scenery bits (waves, flags). */
   updateScenery?(t: number): void;
+  /** Sky gradient (top, bottom). */
+  sky: [number, number];
   happening: {
     title: string;
     description: string;
+    /** How the player travels: flung through the air, or teleported. */
+    style: 'launch' | 'warp';
   };
 }

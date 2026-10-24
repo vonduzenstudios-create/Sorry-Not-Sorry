@@ -15,12 +15,14 @@ const game = new Game(canvas, ui);
 (window as unknown as { game: Game }).game = game;
 // Dev aids: `?debug=board` jumps into a board game with four CPUs,
 // `?debug=minigame&id=<id>` loops a single minigame, `?debug=ending` shows
-// the results with made-up numbers. `&turns=N` shortens a debug board game.
+// the results with made-up numbers. `&turns=N` and `&board=western|space`
+// tweak a debug board game.
 const params = new URLSearchParams(location.search);
 const debug = params.get('debug');
 if (debug === 'board') {
   game.session.seats = ROSTER.map((d) => ({ characterId: d.id, controller: null }));
   game.session.turns = Number(params.get('turns')) || game.session.turns;
+  game.session.boardId = params.get('board') ?? game.session.boardId;
   game.scenes.go(new BoardScene());
 } else if (debug === 'ending') {
   game.scenes.go(

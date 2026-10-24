@@ -5,7 +5,7 @@ import { Hud, rank } from '../board/hud';
 import { DiceBlock } from '../board/dice';
 import { makeGate } from '../board/gate';
 import { ITEM_IDS, ITEMS, rollItem, type ItemId } from '../board/items';
-import { pirateCove } from '../board/pirate';
+import { BOARDS } from '../board';
 import type { BoardDef, Space } from '../board/types';
 import { buildSpaces, SPACE_TOP } from '../board/view';
 import { Character } from '../characters/character';
@@ -85,10 +85,10 @@ export class BoardScene implements Scene {
 
   enter(game: Game): void {
     this.game = game;
-    this.board = pirateCove();
+    this.board = (BOARDS[game.session.boardId] ?? BOARDS.pirate)();
     this.spaces = this.board.spaces;
 
-    this.scene.add(skyDome(0x8ec9ff, 0xfde4f2));
+    this.scene.add(skyDome(...this.board.sky));
     addLights(this.scene);
     this.board.buildScenery(this.scene, this.spaces);
     this.scene.add(buildSpaces(this.spaces));
@@ -385,6 +385,13 @@ export class BoardScene implements Scene {
     await this.say(`${this.board.happening.title} ${this.board.happening.description}`, undefined, 1.6);
     const choices = this.spaces.filter((s) => s.type === 'blue' && s.pos.distanceTo(this.spaces[p.spaceId].pos) > 12);
     const dest = this.game.rng.pick(choices);
+    if (this.board.happening.style === 'warp') {
+      await this.warp(p, dest.id);
+      this.focus(p.character.position);
+      await this.tasks.sleep(0.4);
+      if (dest.id === this.starSpace) await this.offerStar(p);
+      return;
+    }
     this.game.audio.play('boom');
     const ch = p.character;
     const from = ch.position.clone();

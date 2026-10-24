@@ -312,9 +312,11 @@ export function pirateCove(): BoardDef {
     song: pirateTheme,
     buildScenery,
     updateScenery,
+    sky: [0x8ec9ff, 0xfde4f2],
     happening: {
       title: 'Cannon blast!',
       description: 'The ship fires you to another island!',
+      style: 'launch',
     },
   };
 }
