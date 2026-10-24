@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import type { Character } from '../characters/character';
 import type { Ui } from '../ui/ui';
 import { css } from '../render/palette';
+import { itemChip, type ItemId } from './items';
 
 export interface HudPlayer {
   character: Character;
   coins: number;
   stars: number;
   cpu: boolean;
+  item: ItemId | null;
 }
 
 /** Board-game overlay: player panels, turn counter, dialog box, floating labels. */
@@ -35,7 +37,18 @@ export class Hud {
   }
 
   setTurn(turn: number, total: number): void {
-    this.turnEl.innerHTML = `Turn <b>${turn}</b> / ${total}`;
+    const last = total - turn < 5;
+    this.turnEl.classList.toggle('last-five', last);
+    this.turnEl.innerHTML = `Turn <b>${turn}</b> / ${total}${last ? ' <span class="tag">Last 5!</span>' : ''}`;
+  }
+
+  /** Big centered banner that pops in, e.g. "Last 5 turns!". */
+  banner(text: string, ms = 2200): void {
+    const el = document.createElement('div');
+    el.className = 'board-banner';
+    el.textContent = text;
+    this.layer.appendChild(el);
+    window.setTimeout(() => el.remove(), ms);
   }
 
   setPlayers(players: HudPlayer[], active: number): void {
@@ -47,7 +60,7 @@ export class Hud {
       el.innerHTML = `
         <div class="rank">${ordinal(ranks[i])}</div>
         <div class="who"><div class="name">${p.character.def.name}${p.cpu ? ' <span class="cpu">CPU</span>' : ''}</div>
-        <div class="stats"><span class="star">★ ${p.stars}</span><span class="coin">● ${p.coins}</span></div></div>`;
+        <div class="stats"><span class="star">★ ${p.stars}</span><span class="coin">● ${p.coins}</span>${p.item ? itemChip(p.item) : ''}</div></div>`;
     });
   }
 

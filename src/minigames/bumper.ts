@@ -141,6 +141,7 @@ export const bumperBrawl: MinigameDef = {
   id: 'bumper',
   name: 'Bumper Brawl',
   kind: 'ffa',
+  duel: true,
   rules: 'Bump everyone off the platform. Last one riding wins!',
   controls: 'Stick: roll',
   create: () => new BumperBrawl(),

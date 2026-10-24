@@ -2,7 +2,7 @@ import { chaseTheme, tenseTheme } from '../audio/songs/minigame';
 import type { Game } from '../core/game';
 import { Tasks } from '../core/tasks';
 import { css } from '../render/palette';
-import type { Minigame, MinigameDef, MinigamePlayer } from './types';
+import type { Minigame, MinigameDef, MinigameMode, MinigamePlayer } from './types';
 
 const KIND_LABEL = { ffa: '4-Player', '2v2': '2 vs 2', '1v3': '1 vs 3' } as const;
 
@@ -37,7 +37,7 @@ export class MinigameRunner {
   }
 
   /** Returns the seat numbers of the winners (possibly none). */
-  async run(def: MinigameDef, players: MinigamePlayer[]): Promise<number[]> {
+  async run(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode = 'round'): Promise<number[]> {
     const game = this.game;
     game.ui.root.classList.add('in-minigame');
     this.overlay = game.ui.add('mg-overlay');
@@ -48,9 +48,9 @@ export class MinigameRunner {
     const card = document.createElement('div');
     card.className = 'mg-card panel';
     card.innerHTML = `
-      <div class="mg-kind">${KIND_LABEL[def.kind]} minigame</div>
+      <div class="mg-kind">${mode === 'duel' ? 'Duel' : mode === 'battle' ? 'Battle' : KIND_LABEL[def.kind]} minigame</div>
       <div class="mg-name">${def.name}</div>
-      ${teamsHtml(def, players)}
+      ${teamsHtml(def, players, mode)}
       <div class="mg-rules">${def.rules}</div>
       <div class="mg-controls">${def.controls}</div>
       <div class="mg-start">${players.some((p) => p.controller) ? 'Press A to start!' : 'Starting...'}</div>`;
@@ -125,8 +125,8 @@ export class MinigameRunner {
   }
 }
 
-function teamsHtml(def: MinigameDef, players: MinigamePlayer[]): string {
-  if (def.kind === 'ffa') return '';
+function teamsHtml(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode): string {
+  if (def.kind === 'ffa' && mode !== 'duel') return '';
   const teams = [0, 1].map((team) =>
     players
       .filter((p) => p.team === team)

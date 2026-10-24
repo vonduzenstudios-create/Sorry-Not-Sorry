@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { Song } from '../audio/sequencer';
 
-export type SpaceType = 'start' | 'blue' | 'red' | 'happening' | 'item' | 'battle' | 'villain';
+export type SpaceType = 'start' | 'blue' | 'red' | 'happening' | 'item' | 'battle' | 'villain' | 'shop';
 
 export interface Space {
   id: number;
@@ -12,6 +12,8 @@ export interface Space {
   next: number[];
   /** The star can appear here. */
   starCandidate: boolean;
+  /** A locked gate stands at the entrance to this space; a Skeleton Key opens it. */
+  gate?: boolean;
 }
 
 /** A board's data plus the board-specific pieces (scenery, music, happening event). */

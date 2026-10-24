@@ -9,6 +9,7 @@ const CODES: Record<string, SpaceType> = {
   I: 'item',
   T: 'battle',
   V: 'villain',
+  P: 'shop',
 };
 
 /**
@@ -39,9 +40,10 @@ export class BoardBuilder {
 
   /**
    * A side path leaving loop index `from` and rejoining at loop index `to`,
-   * bending through `via` (x, z). Its spaces come from `types`.
+   * bending through `via` (x, z). Its spaces come from `types`. A gated
+   * branch can only be entered with a Skeleton Key.
    */
-  branch(from: number, to: number, via: [number, number][], types: string): this {
+  branch(from: number, to: number, via: [number, number][], types: string, gate = false): this {
     const codes = parseCodes(types);
     const a = this.spaces[this.loopIds[from]].pos;
     const b = this.spaces[this.loopIds[to]].pos;
@@ -57,6 +59,7 @@ export class BoardBuilder {
       this.spaces[id].next = [i < ids.length - 1 ? ids[i + 1] : this.loopIds[to]];
     });
     this.spaces[this.loopIds[from]].next.push(ids[0]);
+    if (gate) this.spaces[ids[0]].gate = true;
     return this;
   }
 
