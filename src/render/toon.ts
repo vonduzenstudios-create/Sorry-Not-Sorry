@@ -61,7 +61,10 @@ function outlineMaterial(thickness: number, color: number): THREE.ShaderMaterial
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 color;
-      void main() { gl_FragColor = vec4(color, 1.0); }
+      void main() {
+        gl_FragColor = vec4(color, 1.0);
+        #include <colorspace_fragment>
+      }
     `,
     side: THREE.BackSide,
   });

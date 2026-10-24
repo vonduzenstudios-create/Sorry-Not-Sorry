@@ -4,7 +4,7 @@ import type { AudioEngine } from './engine';
  * Small set of synth voices shared by music and SFX. Each voice schedules
  * itself at an exact AudioContext time and cleans up after it ends.
  */
-export type Instrument = 'square' | 'pulse' | 'triangle' | 'saw' | 'pluck' | 'bell' | 'bass' | 'pad' | 'kick' | 'snare' | 'hat';
+export type Instrument = 'reed' | 'square' | 'pulse' | 'triangle' | 'saw' | 'pluck' | 'bell' | 'bass' | 'pad' | 'kick' | 'snare' | 'hat';
 
 export interface Voice {
   instrument: Instrument;
@@ -81,6 +81,27 @@ export function playVoice(engine: AudioEngine, out: AudioNode, v: Voice): void {
       envelope(g, t, 0.005, vol * 0.6, 0.1, vol * 0.4, end, 0.05);
       run(a, end + 0.1);
       run(b, end + 0.1);
+      break;
+    }
+    case 'reed': {
+      // Accordion-ish: two detuned saws through a soft filter with vibrato.
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1800;
+      lp.Q.value = 2;
+      lp.connect(g);
+      const vib = osc('sine', 5.5);
+      const vibAmt = ctx.createGain();
+      vibAmt.gain.value = 6;
+      vib.connect(vibAmt);
+      for (const d of [-9, 9]) {
+        const o = osc('sawtooth', v.freq, d);
+        vibAmt.connect(o.detune);
+        o.connect(lp);
+        run(o, end + 0.1);
+      }
+      envelope(g, t, 0.03, vol * 0.55, 0.1, vol * 0.45, end, 0.06);
+      run(vib, end + 0.1);
       break;
     }
     case 'pluck': {

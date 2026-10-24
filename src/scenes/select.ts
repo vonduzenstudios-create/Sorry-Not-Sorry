@@ -7,7 +7,7 @@ import type { Controller } from '../input/input';
 import { addLights, skyDome } from '../render/environment';
 import { css, Palette, PlayerColors } from '../render/palette';
 import { toonMesh } from '../render/toon';
-import { PlaygroundScene } from './playground';
+import { SetupScene } from './setup';
 import { TitleScene } from './title';
 
 interface Picker {
@@ -199,7 +199,7 @@ export class SelectScene implements Scene {
       ...seats.filter((s) => !s.controller),
     ];
     this.game.audio.play('star');
-    this.game.scenes.go(new PlaygroundScene());
+    this.game.scenes.go(new SetupScene());
   }
 
   private back(): void {

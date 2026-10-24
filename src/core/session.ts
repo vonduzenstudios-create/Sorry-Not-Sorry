@@ -9,6 +9,8 @@ export interface Seat {
 /** Who is playing as whom. Filled in by character select, read by everything after. */
 export class Session {
   seats: Seat[] = [];
+  boardId = 'pirate';
+  turns = 10;
 
   get humans(): Seat[] {
     return this.seats.filter((s) => s.controller);

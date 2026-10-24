@@ -17,6 +17,8 @@ export class Game {
   readonly session = new Session();
 
   private last = 0;
+  /** Dev aid: `?speed=4` runs the game four times faster. */
+  private timeScale = Number(new URLSearchParams(location.search).get('speed')) || 1;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.renderer = new Renderer(canvas);
@@ -36,7 +38,7 @@ export class Game {
 
   private frame(now: number): void {
     // Clamp so a background tab doesn't produce one giant step.
-    const dt = Math.min((now - this.last) / 1000, 1 / 20);
+    const dt = Math.min((now - this.last) / 1000, 1 / 20) * this.timeScale;
     this.last = now;
     this.input.poll();
     // Any gamepad button counts as a gesture for audio too.
