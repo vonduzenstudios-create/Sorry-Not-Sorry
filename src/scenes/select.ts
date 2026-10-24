@@ -34,6 +34,7 @@ export class SelectScene implements Scene {
   private prompt!: HTMLDivElement;
   private labelLayer!: HTMLDivElement;
   private stickLatch = new Map<Controller, boolean>();
+  private t = 0;
 
   enter(game: Game): void {
     this.game = game;
@@ -101,13 +102,20 @@ export class SelectScene implements Scene {
   }
 
   update(dt: number): void {
-    const input = this.game.input;
+    this.t += dt;
+    // Online players who left lose their picker.
+    for (const p of this.pickers.filter((p) => p.controller.gone)) {
+      p.label.remove();
+      this.pickers.splice(this.pickers.indexOf(p), 1);
+      this.refresh();
+    }
 
-    for (const c of input.controllers) {
+    for (const c of this.game.controllers) {
+      if (c.gone) continue;
       const picker = this.pickers.find((p) => p.controller === c);
       if (!picker) {
         if (c.pressed('a')) this.join(c);
-        else if (c.pressed('b') && this.pickers.length === 0) this.back();
+        else if (c.pressed('b') && this.pickers.length === 0 && !this.game.net) this.back();
         continue;
       }
       const dir = this.horizontal(c);
@@ -145,7 +153,7 @@ export class SelectScene implements Scene {
       const hovered = this.pickers.some((p) => !p.locked && p.cursor === i);
       ch.pose = lockedBy ? 'cheer' : hovered ? 'wave' : 'idle';
       ch.setExpression(lockedBy ? 'happy' : hovered ? 'surprised' : 'neutral');
-      const targetRot = hovered || lockedBy ? 0 : Math.sin(performance.now() / 1500 + i) * 0.3;
+      const targetRot = hovered || lockedBy ? 0 : Math.sin(this.t / 1.5 + i) * 0.3;
       ch.rotation.y += (targetRot - ch.rotation.y) * Math.min(1, dt * 6);
       ch.update(dt);
     });
@@ -174,7 +182,9 @@ export class SelectScene implements Scene {
   private refresh(): void {
     this.pickers.forEach((p, i) => {
       const color = css(PlayerColors[i]);
-      p.label.textContent = p.locked ? `P${i + 1} ✓` : `P${i + 1}`;
+      // Online, label players by who is behind the controller (Host, Player 2...).
+      const who = this.game.net ? p.controller.label : `P${i + 1}`;
+      p.label.textContent = p.locked ? `${who} ✓` : who;
       p.label.style.background = color;
       p.label.classList.toggle('locked', p.locked);
     });

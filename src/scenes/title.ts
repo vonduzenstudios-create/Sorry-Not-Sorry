@@ -6,7 +6,11 @@ import { addLights, skyDome } from '../render/environment';
 import { Character } from '../characters/character';
 import { ROSTER } from '../characters/roster';
 import { makeCloud, makeDie, makeIsland, makeStar } from '../render/props';
+import type { Controller } from '../input/input';
+import { LobbyScene } from './lobby';
 import { SelectScene } from './select';
+
+const MENU = ['Local game', 'Host online game', 'Join online game'];
 
 export class TitleScene implements Scene {
   private game!: Game;
@@ -17,6 +21,13 @@ export class TitleScene implements Scene {
   private characters: Character[] = [];
   private clouds: THREE.Group[] = [];
   private t = 0;
+  private menu: HTMLDivElement | null = null;
+  private prompt!: HTMLDivElement;
+  private sel = 0;
+  private latch = new Map<Controller, number>();
+
+  /** `message` shows once on arrival, e.g. why an online game ended. */
+  constructor(private message = '') {}
 
   enter(game: Game): void {
     this.game = game;
@@ -56,9 +67,48 @@ export class TitleScene implements Scene {
       'logo',
       '<span>Sorry</span> <span>Not</span><br><span>Sorry!</span>',
     );
-    game.ui.add('prompt', 'Press Start');
+    this.prompt = game.ui.add('prompt', 'Press Start');
     game.ui.add('hint', 'Gamepad: Start or A &nbsp;·&nbsp; Keyboard: Enter or Space');
     game.audio.playSong(titleTheme);
+    if (this.message) game.notify(this.message);
+  }
+
+  private renderMenu(): void {
+    this.menu!.innerHTML = MENU.map((m, i) => `<div class="menu-row panel ${i === this.sel ? 'sel' : ''}"><span>${m}</span><span class="value">${i === this.sel ? '▶' : ''}</span></div>`).join('');
+  }
+
+  private updateMenu(): void {
+    for (const c of this.game.input.controllers) {
+      if (!this.menu) {
+        if (c.pressed('start') || c.pressed('a')) {
+          this.game.audio.play('confirm');
+          this.prompt.remove();
+          this.menu = this.game.ui.add('menu title-menu');
+          this.renderMenu();
+        }
+        continue;
+      }
+      // One step per stick push.
+      const d = c.stickY > 0.5 ? -1 : c.stickY < -0.5 ? 1 : 0;
+      if (d !== 0 && d !== this.latch.get(c)) {
+        this.sel = (this.sel + d + MENU.length) % MENU.length;
+        this.game.audio.play('select');
+        this.renderMenu();
+      }
+      this.latch.set(c, d);
+      if (c.pressed('a') || c.pressed('start')) {
+        this.game.audio.play('confirm');
+        this.game.scenes.go(this.sel === 0 ? new SelectScene() : new LobbyScene(this.sel === 1 ? 'host' : 'guest'));
+        return;
+      }
+      if (c.pressed('b')) {
+        this.game.audio.play('back');
+        this.menu.remove();
+        this.menu = null;
+        this.prompt = this.game.ui.add('prompt', 'Press Start');
+        return;
+      }
+    }
   }
 
   update(dt: number): void {
@@ -88,10 +138,7 @@ export class TitleScene implements Scene {
       if (c.position.x > 40) c.position.x = -40;
     }
 
-    if (this.game.input.controllers.some((c) => c.pressed('start') || c.pressed('a'))) {
-      this.game.audio.play('confirm');
-      this.game.scenes.go(new SelectScene());
-    }
+    this.updateMenu();
   }
 
   exit(): void {
