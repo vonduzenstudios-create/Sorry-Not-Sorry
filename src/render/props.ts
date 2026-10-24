@@ -77,27 +77,6 @@ export function makeCoin(radius = 0.4): THREE.Mesh {
   return coin;
 }
 
-/**
- * Placeholder pawn used until the real characters land in milestone 2:
- * a capsule body, a round head and two eyes, tinted with the player color.
- */
-export function makePawn(color: number): THREE.Group {
-  const pawn = new THREE.Group();
-  const body = toonMesh(new THREE.CapsuleGeometry(0.38, 0.5, 6, 16), color);
-  body.position.y = 0.63;
-  const head = toonMesh(new THREE.SphereGeometry(0.36, 24, 16), Palette.cream);
-  head.position.y = 1.35;
-  const eyeGeo = new THREE.SphereGeometry(0.055, 12, 8);
-  for (const side of [-1, 1]) {
-    const eye = toonMesh(eyeGeo, Palette.ink, { outline: false });
-    eye.position.set(side * 0.12, 1.4, 0.32);
-    eye.scale.y = 1.5;
-    pawn.add(eye);
-  }
-  pawn.add(body, head);
-  return pawn;
-}
-
 /** Round grassy island with a sandy rim, floating on nothing. */
 export function makeIsland(radius = 7): THREE.Group {
   const island = new THREE.Group();

@@ -4,6 +4,7 @@ import { Renderer } from '../render/renderer';
 import { Ui } from '../ui/ui';
 import { Rng } from './rng';
 import { SceneManager } from './scene';
+import { Session } from './session';
 
 /** Shared services handed to every scene. */
 export class Game {
@@ -13,6 +14,7 @@ export class Game {
   readonly ui: Ui;
   readonly rng = new Rng();
   readonly scenes: SceneManager;
+  readonly session = new Session();
 
   private last = 0;
 
