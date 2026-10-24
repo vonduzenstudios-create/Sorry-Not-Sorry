@@ -31,6 +31,11 @@ export class Rng {
     return items[Math.floor(this.next() * items.length)];
   }
 
+  /** Restart the sequence; online peers all reseed with the host's seed. */
+  reset(seed: number): void {
+    this.state = seed >>> 0;
+  }
+
   get seed(): number {
     return this.state;
   }

@@ -310,8 +310,10 @@ export class EndingScene implements Scene {
         .join('') +
       '</table><div class="hint-line">Press A to return to the title</div>';
 
-    await this.tasks.until(() => this.game.input.controllers.some((c) => c.pressed('a') || c.pressed('start')));
+    await this.tasks.until(() => this.game.controllers.some((c) => c.pressed('a') || c.pressed('start')));
     this.game.audio.play('confirm');
+    // Online, everyone sees the same press on the same frame and leaves together.
+    this.game.leaveOnline();
     this.game.scenes.go(new TitleScene());
   }
 

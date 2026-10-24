@@ -19,6 +19,14 @@ npm run build    # type-check + production build into dist/
 | B (back) | B | Left Shift / K |
 | Start | Start | Enter / Esc |
 
+## Online play
+
+From the title screen pick **Host online game** to get a four-letter room code and an invite link. Friends pick **Join online game** and type the code, or just open the link. Up to 4 players; CPUs fill empty seats, and take over for anyone who disconnects.
+
+Under the hood it's deterministic lockstep over WebRTC (PeerJS): every browser runs the same game from the same seed at a fixed 60 Hz, and only controller input crosses the network. The host collects each frame's input from everyone and broadcasts it, so all players simulate identical frames. The free PeerJS cloud broker introduces the players; there is no game server. Some strict networks block direct peer connections (no TURN relay is configured).
+
+For local testing you can run your own broker (`npx peer --port 9000`) and add `?peerhost=127.0.0.1&peerport=9000` to the URL.
+
 ## Items
 
 You carry one item at a time. Get them from purple **?** spaces or the yellow shop space, and use them before you roll.
@@ -52,7 +60,8 @@ src/
   audio/    WebAudio synth voices, SFX recipes, step sequencer, songs
   board/    board graph, spaces, dice, items, HUD, the Grudge
   minigames/ minigame framework and the minigames
-  scenes/   title, character select, setup, board, ending
+  net/      PeerJS transport and lockstep netcode
+  scenes/   title, online lobby, character select, setup, board, ending
   ui/       HTML overlay helpers and styles
 ```
 

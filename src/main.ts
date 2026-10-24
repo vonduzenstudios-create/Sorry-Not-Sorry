@@ -3,6 +3,7 @@ import { Game } from './core/game';
 import { ROSTER } from './characters/roster';
 import { BoardScene } from './scenes/board';
 import { EndingScene } from './scenes/ending';
+import { LobbyScene } from './scenes/lobby';
 import { MinigameTestScene } from './scenes/minigameTest';
 import { TitleScene } from './scenes/title';
 
@@ -33,6 +34,9 @@ if (debug === 'board') {
       })),
     ),
   );
+} else if (params.get('join')) {
+  // Shared invite links land straight in the lobby.
+  game.scenes.go(new LobbyScene('guest', params.get('join')!));
 } else if (debug === 'minigame') {
   game.scenes.go(new MinigameTestScene());
 } else {

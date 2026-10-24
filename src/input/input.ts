@@ -21,6 +21,8 @@ export class Controller {
   stickX = 0;
   /** Positive is up/forward. */
   stickY = 0;
+  /** Online: the player behind this controller left the game. */
+  gone = false;
   private now = emptyButtons();
   private prev = emptyButtons();
 
@@ -115,6 +117,8 @@ export class Input {
 
   constructor() {
     window.addEventListener('keydown', (e) => {
+      // Typing in a text box (room codes) isn't game input.
+      if (e.target instanceof HTMLInputElement) return;
       if (e.code in KEYMAP) e.preventDefault();
       this.keys.add(e.code);
       this.tapped.add(e.code);
@@ -130,6 +134,22 @@ export class Input {
 
   anyPressed(): boolean {
     return this.controllers.some((c) => c.anyPressed());
+  }
+
+  /** Every local device merged into one state: the online player's input. */
+  merged(): ControllerState {
+    const buttons = emptyButtons();
+    let stickX = 0;
+    let stickY = 0;
+    for (const c of this.controllers) {
+      const s = c.snapshot();
+      for (const b of BUTTONS) buttons[b] ||= s.buttons[b];
+      if (Math.hypot(s.stickX, s.stickY) > Math.hypot(stickX, stickY)) {
+        stickX = s.stickX;
+        stickY = s.stickY;
+      }
+    }
+    return { stickX, stickY, buttons };
   }
 
   poll(): void {
