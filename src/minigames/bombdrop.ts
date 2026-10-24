@@ -166,6 +166,7 @@ export const bombDrop: MinigameDef = {
   id: 'bombdrop',
   name: 'Bomb Drop',
   kind: 'ffa',
+  duel: true,
   rules: 'Bombs are raining down! Watch the shadows and be the last one standing.',
   controls: 'Stick: run',
   create: () => new BombDrop(),

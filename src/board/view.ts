@@ -11,6 +11,7 @@ export const SPACE_COLORS: Record<SpaceType, number> = {
   item: 0xb79cff,
   battle: 0xffa65c,
   villain: 0x6b4f9e,
+  shop: 0xffd23f,
 };
 
 const SPACE_RADIUS = 0.95;
@@ -84,6 +85,20 @@ function icon(type: SpaceType): THREE.CanvasTexture {
       g.beginPath();
       g.arc(64, 100, 20, Math.PI * 1.15, Math.PI * 1.85);
       g.stroke();
+      break;
+    case 'shop':
+      // A little shopping bag.
+      g.fillStyle = 'rgba(255,255,255,0.95)';
+      g.fillRect(38, 52, 52, 44);
+      g.lineWidth = 8;
+      g.beginPath();
+      g.arc(64, 52, 14, Math.PI, 0);
+      g.stroke();
+      g.fillStyle = ink;
+      g.font = '900 30px system-ui, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('$', 64, 76);
       break;
     case 'start':
       g.fillStyle = ink;

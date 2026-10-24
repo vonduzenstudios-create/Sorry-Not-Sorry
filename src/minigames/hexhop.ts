@@ -191,6 +191,7 @@ export const hexHop: MinigameDef = {
   id: 'hexhop',
   name: 'Hex Hop',
   kind: 'ffa',
+  duel: true,
   rules: 'A color is called. Get onto a hex of that color before the rest drop away!',
   controls: 'Stick: move',
   create: () => new HexHop(),

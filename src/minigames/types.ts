@@ -4,6 +4,8 @@ import type { Game } from '../core/game';
 import type { Controller } from '../input/input';
 
 export type MinigameKind = 'ffa' | '2v2' | '1v3';
+/** Why a minigame is being played: end of round, a battle space or a duel. */
+export type MinigameMode = 'round' | 'battle' | 'duel';
 
 export interface MinigamePlayer {
   /** Seat index on the board, used to report winners back. */
@@ -23,6 +25,8 @@ export interface MinigameDef {
   kind: MinigameKind;
   rules: string;
   controls: string;
+  /** FFA game that also works one on one, so it can host duels. */
+  duel?: boolean;
   create(): Minigame;
 }
 

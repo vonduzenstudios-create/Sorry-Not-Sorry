@@ -3,12 +3,16 @@ import { ROSTER } from '../characters/roster';
 import type { Seat } from '../core/session';
 import type { MinigamePlayer } from './types';
 
-/** Fresh characters for a minigame scene, one per seat, with teams assigned. */
-export function makeMinigamePlayers(seats: Seat[], teams: number[]): MinigamePlayer[] {
-  return seats.map((seat, i) => ({
+/**
+ * Fresh characters for a minigame scene, one per seat, with teams assigned.
+ * `only` limits it to some seats (duels); `teams` is indexed by seat.
+ */
+export function makeMinigamePlayers(seats: Seat[], teams: number[], only?: number[]): MinigamePlayer[] {
+  const ids = only ?? seats.map((_, i) => i);
+  return ids.map((i) => ({
     seat: i,
-    character: new Character(ROSTER.find((d) => d.id === seat.characterId)!),
-    controller: seat.controller,
+    controller: seats[i].controller,
+    character: new Character(ROSTER.find((d) => d.id === seats[i].characterId)!),
     team: teams[i],
     alive: true,
     data: {},

@@ -27,10 +27,10 @@ function layout(): { spaces: Space[]; startId: number } {
         [-13, 14],
       ],
       // 40 spaces, starting at the dock and going counter-clockwise (seen from above).
-      'S B B R B I* B H B B ' + 'R B T B H* B B V B I ' + 'B B R B H B B* I B R ' + 'B H B B V* B B I R B',
+      'S B B R B I* B H B B ' + 'R B T B H* B B V B I ' + 'B P R B H B B* I B R ' + 'B H B B V* B B I R B',
     )
-    // Ghost-ship shortcut on the east side.
-    .branch(6, 15, [[12, 2], [8, -6]], 'B R H B* R')
+    // Ghost-ship shortcut on the east side, behind a locked gate.
+    .branch(6, 15, [[12, 2], [8, -6]], 'B R H B R', true)
     // Treasure isle path on the west side.
     .branch(25, 34, [[-10, -6], [-11, 4]], 'B I B* H R');
   return { spaces: b.spaces, startId: b.loopId(0) };
