@@ -420,3 +420,118 @@ body {
   padding: 6px 4px;
   border-bottom: 2px dashed rgba(43, 36, 64, 0.2);
 }
+
+/* ---------- Minigames ---------- */
+
+.mg-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.mg-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100% - 32px));
+  text-align: center;
+  padding: 20px 24px;
+}
+
+.mg-kind {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+.mg-name {
+  font-size: 40px;
+  font-weight: 900;
+  margin: 4px 0 8px;
+}
+
+.mg-teams {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.mg-rules {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.mg-controls {
+  font-size: 15px;
+  opacity: 0.75;
+  margin-bottom: 12px;
+}
+
+.mg-start {
+  font-size: 20px;
+  animation: bob 1s ease-in-out infinite;
+}
+
+.mg-big {
+  position: absolute;
+  top: 38%;
+  width: 100%;
+  text-align: center;
+  font-size: clamp(60px, 14vw, 160px);
+  font-weight: 900;
+  color: var(--yellow);
+  -webkit-text-stroke: 0.08em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 0.07em 0 var(--ink);
+  transform: translateY(-50%);
+}
+
+.mg-big.pop {
+  animation: pop 0.45s ease-out;
+}
+
+@keyframes pop {
+  from {
+    transform: translateY(-50%) scale(1.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.mg-clock {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 28px;
+  min-width: 70px;
+  text-align: center;
+}
+
+.mg-result {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  font-size: 30px;
+  white-space: nowrap;
+}
+
+.mg-score {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 26px;
+  display: flex;
+  gap: 18px;
+}
+
+/* The board HUD hides while a minigame is on screen. */
+.in-minigame > :not(.mg-overlay) {
+  display: none;
+}
