@@ -3,9 +3,10 @@ import { titleTheme } from '../audio/songs/title';
 import type { Game } from '../core/game';
 import type { Scene } from '../core/scene';
 import { addLights, skyDome } from '../render/environment';
-import { PlayerColors } from '../render/palette';
-import { makeCloud, makeDie, makeIsland, makePawn, makeStar } from '../render/props';
-import { PlaygroundScene } from './playground';
+import { Character } from '../characters/character';
+import { ROSTER } from '../characters/roster';
+import { makeCloud, makeDie, makeIsland, makeStar } from '../render/props';
+import { SelectScene } from './select';
 
 export class TitleScene implements Scene {
   private game!: Game;
@@ -13,7 +14,7 @@ export class TitleScene implements Scene {
   private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
   private star!: THREE.Mesh;
   private die!: THREE.Mesh;
-  private pawns: THREE.Group[] = [];
+  private characters: Character[] = [];
   private clouds: THREE.Group[] = [];
   private t = 0;
 
@@ -33,13 +34,14 @@ export class TitleScene implements Scene {
     this.die.position.set(2.8, 1.6, 1.2);
     this.scene.add(this.die);
 
-    PlayerColors.forEach((color, i) => {
-      const pawn = makePawn(color);
+    ROSTER.forEach((def, i) => {
+      const c = new Character(def);
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      pawn.position.set(Math.cos(a) * 3.2, 0, Math.sin(a) * 3.2);
-      pawn.lookAt(0, 0, 0);
-      this.scene.add(pawn);
-      this.pawns.push(pawn);
+      c.position.set(Math.cos(a) * 3.2, 0, Math.sin(a) * 3.2);
+      // Face outward so the orbiting camera sees their faces.
+      c.lookAt(c.position.x * 2, 0, c.position.z * 2);
+      this.scene.add(c);
+      this.characters.push(c);
     });
 
     for (let i = 0; i < 6; i++) {
@@ -73,11 +75,12 @@ export class TitleScene implements Scene {
     this.die.rotation.set(t * 0.9, t * 1.3, 0);
     this.die.position.y = 1.8 + Math.sin(t * 2.4 + 1) * 0.3;
 
-    this.pawns.forEach((p, i) => {
-      // Little hop, out of phase per player.
-      const hop = Math.max(0, Math.sin(t * 5 + i * 1.6));
-      p.position.y = hop * 0.35;
-      p.scale.set(1 + hop * 0.04, 1 - hop * 0.06, 1 + hop * 0.04);
+    // Each character takes a turn showing off while the others idle and wave.
+    const star = Math.floor(t / 2.5) % this.characters.length;
+    this.characters.forEach((c, i) => {
+      c.pose = i === star ? 'cheer' : (i + Math.floor(t / 2.5)) % 3 === 0 ? 'wave' : 'idle';
+      c.setExpression(i === star ? 'happy' : 'neutral');
+      c.update(dt);
     });
 
     for (const c of this.clouds) {
@@ -87,7 +90,7 @@ export class TitleScene implements Scene {
 
     if (this.game.input.controllers.some((c) => c.pressed('start') || c.pressed('a'))) {
       this.game.audio.play('confirm');
-      this.game.scenes.go(new PlaygroundScene());
+      this.game.scenes.go(new SelectScene());
     }
   }
 
