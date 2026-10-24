@@ -22,6 +22,7 @@ export function skyDome(top: number = Palette.skyTop, bottom: number = Palette.s
       void main() {
         float t = smoothstep(-0.35, 0.3, vPos.y);
         gl_FragColor = vec4(mix(bottom, top, t), 1.0);
+        #include <colorspace_fragment>
       }
     `,
     side: THREE.BackSide,
