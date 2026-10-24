@@ -13,6 +13,10 @@ import type { Scene } from '../core/scene';
 import type { Seat } from '../core/session';
 import { easeOut, easeOutBack, linear, Tasks } from '../core/tasks';
 import type { Controller } from '../input/input';
+import { MINIGAMES } from '../minigames';
+import { makeMinigamePlayers } from '../minigames/players';
+import { MinigameRunner } from '../minigames/runner';
+import type { MinigameKind } from '../minigames/types';
 import { addLights, skyDome } from '../render/environment';
 import { Palette } from '../render/palette';
 import { makeStar } from '../render/props';
@@ -59,6 +63,10 @@ export class BoardScene implements Scene {
   private arrows: THREE.Mesh[] = [];
   private t = 0;
   private alive = true;
+  private runner!: MinigameRunner;
+  /** Color each player landed on this round; decides the minigame type. */
+  private roundColors: ('blue' | 'red')[] = [];
+  private lastMinigame = '';
 
   enter(game: Game): void {
     this.game = game;
@@ -93,6 +101,7 @@ export class BoardScene implements Scene {
     }
     this.spreadPlayers(true);
 
+    this.runner = new MinigameRunner(game);
     this.hud = new Hud(game.ui, this.camera);
     this.refreshHud();
     this.hud.setTurn(1, game.session.turns);
@@ -268,6 +277,14 @@ export class BoardScene implements Scene {
   private async land(p: BoardPlayer): Promise<void> {
     const space = this.spaces[p.spaceId];
     const ch = p.character;
+    // Blue and red count as themselves; event spaces count as a random color.
+    const seat = this.players.indexOf(p);
+    this.roundColors[seat] =
+      space.type === 'blue' || space.type === 'start'
+        ? 'blue'
+        : space.type === 'red' || space.type === 'villain'
+          ? 'red'
+          : this.game.rng.pick(['blue', 'red'] as const);
     switch (space.type) {
       case 'blue':
       case 'start':
@@ -411,20 +428,34 @@ export class BoardScene implements Scene {
 
   private async minigame(): Promise<void> {
     this.focus(this.centroid());
-    await this.say('Minigame time!', undefined, 1.0);
-    await this.say('Real minigames arrive in the next update. For now: a lucky coin toss!', undefined, 1.8);
-    const winners = this.players.filter(() => this.game.rng.next() < 0.4);
-    if (winners.length === 0) winners.push(this.game.rng.pick(this.players));
-    for (const p of this.players) {
-      if (winners.includes(p)) {
-        p.stats.minigameCoins += 10;
-        void this.changeCoins(p, 10);
-      } else {
-        p.character.pose = 'sulk';
-        p.character.setExpression('sad');
-      }
+    const blues = this.players.map((_, i) => this.roundColors[i] ?? 'blue');
+    const nBlue = blues.filter((c) => c === 'blue').length;
+    const kind: MinigameKind = nBlue === 0 || nBlue === 4 ? 'ffa' : nBlue === 2 ? '2v2' : '1v3';
+    // 2v2: blue team vs red team. 1v3: the odd color out goes solo (team 0).
+    const soloColor = nBlue === 1 ? 'blue' : 'red';
+    const teams = blues.map((c, i) => (kind === 'ffa' ? i : kind === '2v2' ? (c === 'blue' ? 0 : 1) : c === soloColor ? 0 : 1));
+    const label = kind === 'ffa' ? 'a 4-player' : kind === '2v2' ? 'a 2 vs 2' : 'a 1 vs 3';
+    await this.say(`Minigame time! It's ${label} minigame!`, undefined, 1.6);
+
+    const options = MINIGAMES.filter((m) => m.kind === kind);
+    const fresh = options.filter((m) => m.id !== this.lastMinigame);
+    const def = this.game.rng.pick(fresh.length ? fresh : options);
+    this.lastMinigame = def.id;
+
+    this.game.audio.stopSong();
+    const winners = await this.runner.run(def, makeMinigamePlayers(this.game.session.seats, teams));
+    this.game.renderer.setView(this.scene, this.camera);
+    this.game.audio.playSong(this.board.song);
+    this.roundColors = [];
+
+    for (const seat of winners) {
+      const p = this.players[seat];
+      p.stats.minigameCoins += 10;
+      void this.changeCoins(p, 10);
     }
-    await this.say(`${winners.map((w) => w.character.def.name).join(' and ')} win${winners.length === 1 ? 's' : ''} 10 coins!`, undefined, 1.6);
+    if (winners.length) {
+      await this.say(`${winners.map((s) => this.players[s].character.def.name).join(' & ')} win${winners.length === 1 ? 's' : ''} 10 coins!`, undefined, 1.6);
+    }
     for (const p of this.players) {
       p.character.pose = 'idle';
       p.character.setExpression('neutral');
@@ -538,6 +569,10 @@ export class BoardScene implements Scene {
   }
 
   update(dt: number): void {
+    if (this.runner.active) {
+      this.runner.update(dt);
+      return;
+    }
     this.t += dt;
     this.tasks.update(dt);
     this.board.updateScenery?.(this.t);
