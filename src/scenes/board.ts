@@ -27,6 +27,7 @@ import { EndingScene, type FinalPlayer } from './ending';
 const STAR_COST = 20;
 const START_COINS = 10;
 const CAMERA_OFFSET = new THREE.Vector3(0, 16, 14);
+const SUN_OFFSET = new THREE.Vector3(8, 14, 6);
 
 export interface BoardPlayer {
   seat: Seat;
@@ -84,6 +85,7 @@ export class BoardScene implements Scene {
   private grudge = makeGrudge();
   private arrows: THREE.Mesh[] = [];
   private t = 0;
+  private sun!: THREE.DirectionalLight;
   private alive = true;
   private runner!: MinigameRunner;
   /** Color each player landed on this round; decides the minigame type. */
@@ -99,7 +101,9 @@ export class BoardScene implements Scene {
     this.spaces = this.board.spaces;
 
     this.scene.add(skyDome(...this.board.sky));
-    addLights(this.scene);
+    this.sun = addLights(this.scene);
+    // The sun's shadow box is small, so it follows the camera round the board.
+    this.scene.add(this.sun.target);
     this.board.buildScenery(this.scene, this.spaces);
     this.scene.add(buildSpaces(this.spaces));
     this.buildGates();
@@ -1051,6 +1055,8 @@ export class BoardScene implements Scene {
     this.zoom += (this.zoomTarget - this.zoom) * Math.min(1, dt * 2);
     this.camera.position.copy(this.camFocus).addScaledVector(CAMERA_OFFSET, this.zoom);
     this.camera.lookAt(this.camFocus.x, 0.5, this.camFocus.z);
+    this.sun.target.position.set(this.camFocus.x, 0, this.camFocus.z);
+    this.sun.position.copy(this.sun.target.position).add(SUN_OFFSET);
     this.hud.update();
   }
 }
