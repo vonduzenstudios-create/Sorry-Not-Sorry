@@ -16,7 +16,7 @@ const BOARDS = [
 ];
 const TURNS = [10, 15, 20];
 
-/** Pick a board and a game length. Any human player can drive the menu. */
+/** Pick a board and a game length. Any human player can drive the menu; online, only the host. */
 export class SetupScene implements Scene {
   private game!: Game;
   private scene = new THREE.Scene();
@@ -43,7 +43,8 @@ export class SetupScene implements Scene {
     game.renderer.setView(this.scene, this.camera);
     game.ui.add('screen-title', 'Game setup');
     this.menu = game.ui.add('menu');
-    game.ui.add('hint', 'Up/Down: choose · Left/Right: change · A: start · B: back');
+    const guest = game.net && !game.net.isHost;
+    game.ui.add('hint', guest ? 'The host is choosing the board...' : 'Up/Down: choose · Left/Right: change · A: start · B: back');
     this.turns = Math.max(0, TURNS.indexOf(game.session.turns));
     this.render();
   }
@@ -62,8 +63,10 @@ export class SetupScene implements Scene {
       ch.pose = 'idle';
       ch.update(dt);
     }
-    const humans = this.game.session.humans.map((s) => s.controller!);
-    for (const c of humans) {
+    // Online, the menu is the host's alone; guests watch it change.
+    const net = this.game.net;
+    const drivers = net ? [net.controllers[0]] : this.game.session.humans.map((s) => s.controller!);
+    for (const c of drivers) {
       const d = this.dir(c);
       if (d === 'up' || d === 'down') {
         this.row = (this.row + (d === 'down' ? 1 : 2)) % 3;

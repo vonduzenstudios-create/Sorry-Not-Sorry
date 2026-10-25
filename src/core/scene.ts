@@ -8,6 +8,8 @@ export interface Scene {
   enter(game: Game): void;
   update(dt: number): void;
   exit(): void;
+  /** Online: a number summarizing game state, compared between peers to catch desyncs. */
+  digest?(): number;
 }
 
 export class SceneManager {
@@ -19,6 +21,15 @@ export class SceneManager {
   /** Switch at the start of the next frame, so a scene can request a change mid-update. */
   go(scene: Scene): void {
     this.pending = scene;
+  }
+
+  /** Name of the scene that is running (or about to), for desync checks. */
+  get currentName(): string {
+    return (this.pending ?? this.current)?.constructor.name ?? '';
+  }
+
+  digest(): number {
+    return this.pending ? 0 : (this.current?.digest?.() ?? 0);
   }
 
   update(dt: number): void {

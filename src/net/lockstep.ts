@@ -5,10 +5,16 @@ import type { Link, Message } from './transport';
 export const STEP = 1 / 60;
 /** Frames between sampling local input and simulating it; hides network latency. */
 const DELAY = 6;
-/** How often peers compare RNG state to catch a desync. */
-const HASH_EVERY = 120;
-/** A peer silent this long (ms) while others wait on them is treated as gone. */
-const TIMEOUT = 10000;
+/** How often peers compare game state to catch a desync. */
+const HASH_EVERY = 60;
+/** Host: a guest silent this long (ms) while others wait on them is treated as gone. */
+const TIMEOUT = 12000;
+/** Guests give the host longer, since it may itself be waiting on another guest. */
+const HOST_TIMEOUT = 20000;
+/** Host: while stalled, tell guests we're still here this often (ms). */
+const PING_EVERY = 1000;
+/** Frames the host waits for everyone at a barrier before releasing it anyway. */
+const BARRIER_TIMEOUT = 60 * 8;
 
 type Packed = [bits: number, sx: number, sy: number];
 
@@ -26,10 +32,25 @@ function unpack(p: Packed | null): ControllerState {
   return { stickX: p ? p[1] / 100 : 0, stickY: p ? p[2] / 100 : 0, buttons };
 }
 
+/** The host's data for a barrier, handed to every peer on the same frame. */
+interface Release {
+  k: string;
+  d: unknown;
+}
+
 interface Bundle {
   inputs: (Packed | null)[];
   /** Peers that left; applied by everyone on this exact frame. */
   drops: number[];
+  /** Barriers that open on this exact frame. */
+  rel?: Release[];
+}
+
+/** Host: who has reached a barrier so far. */
+interface Arrival {
+  peers: Set<number>;
+  /** Set once the host itself arrives. */
+  host?: { data: unknown; frame: number };
 }
 
 export interface LockstepEvents {
@@ -47,6 +68,11 @@ export interface LockstepEvents {
  * peer's input for a frame into a bundle and broadcasts it. A frame is
  * simulated only once its bundle is known, so every peer sees identical
  * input on identical frames and the games never drift apart.
+ *
+ * Barriers are a safety net on top: at a checkpoint (the start of each board
+ * turn, say) every peer reports in and waits. Once all have arrived, the host
+ * attaches its own state to the next bundle, so everyone resumes on the same
+ * frame with the host's state, even if something had drifted.
  */
 export class Lockstep {
   /** One controller per peer, driven only by bundles. Index 0 is the host. */
@@ -61,8 +87,19 @@ export class Lockstep {
   private hashes = new Map<number, number>();
   private remoteHashes = new Map<number, number[]>();
   closed = false;
+  /** The game reached its results; the host leaving now is expected. */
+  finished = false;
   /** performance.now() of the last message from each link. */
   private lastSeen: number[];
+  private lastPing = 0;
+  /** Barriers opened so far, with the host's data. */
+  private releases = new Map<string, unknown>();
+  /** Host only: barriers being waited on, and ones already scheduled to open. */
+  private arrivals = new Map<string, Arrival>();
+  private pendingReleases: Release[] = [];
+  private releasedKeys = new Set<string>();
+  /** Called whenever a message arrives, so the game can step without waiting for a timer. */
+  onActivity: () => void = () => {};
 
   constructor(
     readonly me: number,
@@ -82,6 +119,7 @@ export class Lockstep {
         link.onMessage = (m) => {
           this.lastSeen[i] = performance.now();
           this.hostReceive(peer, m);
+          this.onActivity();
         };
         link.onClose = () => this.dropPeer(peer);
       });
@@ -89,6 +127,7 @@ export class Lockstep {
       links[0].onMessage = (m) => {
         this.lastSeen[0] = performance.now();
         this.guestReceive(m);
+        this.onActivity();
       };
       links[0].onClose = () => {
         if (!this.closed) this.events.onHostLost();
@@ -122,9 +161,13 @@ export class Lockstep {
     return this.frame < DELAY || this.bundles.has(this.frame);
   }
 
-  /** How many frames we could simulate right now without waiting. */
-  backlog(): number {
-    return this.bundles.size;
+  /**
+   * True when we have fallen behind the others: more frames are ready than
+   * the input delay alone accounts for, so we should step without waiting
+   * for the clock.
+   */
+  behind(): boolean {
+    return this.bundles.size > DELAY + 3;
   }
 
   /** Applies the current frame's inputs to the controllers and sends our input for a later frame. */
@@ -136,6 +179,7 @@ export class Lockstep {
       this.alive[peer] = false;
       this.events.onDrop(peer);
     }
+    for (const r of bundle?.rel ?? []) this.releases.set(r.k, r.d);
 
     const sample = pack(this.latch ?? unpack(null));
     this.latch = null;
@@ -152,7 +196,36 @@ export class Lockstep {
         this.links[0].send({ t: 'h', f: this.frame, h });
       }
     }
+    if (this.isHost) {
+      for (const [k, a] of this.arrivals) {
+        if (a.host && this.frame - a.host.frame > BARRIER_TIMEOUT) this.open(k, true);
+      }
+    }
     this.frame++;
+  }
+
+  /**
+   * Our game reached checkpoint `key`. The host's `data` is what everyone
+   * gets back from `released` once all peers are there.
+   */
+  barrier(key: string, data: unknown): void {
+    if (this.releases.has(key)) return;
+    if (!this.isHost) return void this.links[0].send({ t: 'arr', k: key });
+    if (this.releasedKeys.has(key)) return;
+    const a = this.arrivals.get(key) ?? { peers: new Set<number>() };
+    a.host = { data, frame: this.frame };
+    this.arrivals.set(key, a);
+    this.tryOpen(key);
+  }
+
+  /** Whether checkpoint `key` has opened (on this frame or earlier). */
+  isReleased(key: string): boolean {
+    return this.releases.has(key);
+  }
+
+  /** The host's data for an opened checkpoint. */
+  released(key: string): unknown {
+    return this.releases.get(key);
   }
 
   /**
@@ -163,13 +236,17 @@ export class Lockstep {
     if (this.closed || this.ready()) return;
     const now = performance.now();
     if (this.isHost) {
+      if (now - this.lastPing > PING_EVERY) {
+        this.lastPing = now;
+        this.links.forEach((l, i) => this.alive[i + 1] && l.send({ t: 'p' }));
+      }
       this.lastSeen.forEach((t, i) => {
         if (this.alive[i + 1] && now - t > TIMEOUT) {
           this.links[i].close();
           this.dropPeer(i + 1);
         }
       });
-    } else if (now - this.lastSeen[0] > TIMEOUT) {
+    } else if (now - this.lastSeen[0] > HOST_TIMEOUT) {
       this.closed = true;
       this.events.onHostLost();
     }
@@ -189,7 +266,31 @@ export class Lockstep {
       list[peer] = m.h as number;
       this.remoteHashes.set(m.f as number, list);
       this.checkHashes(m.f as number);
+    } else if (m.t === 'arr') {
+      const k = m.k as string;
+      if (this.releasedKeys.has(k)) return;
+      const a = this.arrivals.get(k) ?? { peers: new Set<number>() };
+      a.peers.add(peer);
+      this.arrivals.set(k, a);
+      this.tryOpen(k);
     }
+  }
+
+  /** Opens a barrier once the host and every connected guest have reached it. */
+  private tryOpen(k: string): void {
+    const a = this.arrivals.get(k);
+    if (!a?.host) return;
+    const all = this.alive.every((alive, i) => i === 0 || !alive || a.peers.has(i));
+    if (all) this.open(k, false);
+  }
+
+  private open(k: string, timedOut: boolean): void {
+    const a = this.arrivals.get(k)!;
+    if (timedOut) console.warn(`Checkpoint ${k}: opened without everyone after waiting`);
+    this.arrivals.delete(k);
+    this.releasedKeys.add(k);
+    this.pendingReleases.push({ k, d: a.host!.data });
+    this.flush();
   }
 
   private gather(peer: number, f: number, s: Packed): void {
@@ -211,6 +312,7 @@ export class Lockstep {
         inputs: this.alive.map((alive, i) => (alive ? row[i]! : null)),
         drops: this.pendingDrops.splice(0),
       };
+      if (this.pendingReleases.length) bundle.rel = this.pendingReleases.splice(0);
       this.gathered.delete(f);
       this.bundles.set(f, bundle);
       for (let i = 0; i < this.links.length; i++) {
@@ -223,7 +325,8 @@ export class Lockstep {
     if (!this.alive[peer] || this.closed) return;
     this.alive[peer] = false;
     this.pendingDrops.push(peer);
-    // Frames that were only waiting on them can go out now.
+    // Frames and checkpoints that were only waiting on them can go ahead now.
+    for (const k of [...this.arrivals.keys()]) this.tryOpen(k);
     this.flush();
   }
 
@@ -242,7 +345,7 @@ export class Lockstep {
 
   private guestReceive(m: Message): void {
     if (m.t === 'b') {
-      this.bundles.set(m.f as number, { inputs: m.inputs as (Packed | null)[], drops: m.drops as number[] });
+      this.bundles.set(m.f as number, { inputs: m.inputs as (Packed | null)[], drops: m.drops as number[], rel: m.rel as Release[] | undefined });
       for (const peer of m.drops as number[]) this.alive[peer] = false;
     }
   }
