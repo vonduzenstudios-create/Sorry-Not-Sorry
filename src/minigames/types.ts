@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Character } from '../characters/character';
 import type { Game } from '../core/game';
 import type { Controller } from '../input/input';
+import type { Song } from '../audio/sequencer';
 
 export type MinigameKind = 'ffa' | '2v2' | '1v3';
 /** Why a minigame is being played: end of round, a battle space or a duel. */
@@ -27,6 +28,8 @@ export interface MinigameDef {
   controls: string;
   /** FFA game that also works one on one, so it can host duels. */
   duel?: boolean;
+  /** Its own theme; games without one share the FFA or team theme. */
+  song?: Song;
   create(): Minigame;
 }
 

@@ -75,3 +75,44 @@ export function fall(p: MinigamePlayer, dt: number, floor = -30): void {
   pos.addScaledVector(f.vel, dt);
   p.character.rotation.x += f.spin * dt;
 }
+
+/**
+ * CPU button mashing at a steady rate (presses per second). Deterministic:
+ * driven only by dt, so every online peer sees the same presses.
+ */
+export function cpuMash(p: MinigamePlayer, rate: number, dt: number): boolean {
+  const t = ((p.data.mashT as number | undefined) ?? 0) + dt * rate;
+  p.data.mashT = t % 1;
+  return t >= 1;
+}
+
+export type Dir = 'up' | 'down' | 'left' | 'right';
+export const DIRS: readonly Dir[] = ['up', 'right', 'down', 'left'];
+
+/** A fresh flick of the stick or d-pad this frame (edge-triggered), or null. */
+export function dirPressed(p: MinigamePlayer): Dir | null {
+  const c = p.controller;
+  if (!c) return null;
+  const x = c.stickX;
+  const y = c.stickY;
+  let d: Dir | null = null;
+  if (Math.max(Math.abs(x), Math.abs(y)) > 0.6) d = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'up' : 'down';
+  const prev = p.data.lastDir as Dir | null | undefined;
+  p.data.lastDir = d;
+  return d && d !== prev ? d : null;
+}
+
+/** The standard score strip under the clock. */
+export function scorePanel(overlay: HTMLDivElement): HTMLDivElement {
+  const el = document.createElement('div');
+  el.className = 'mg-score panel';
+  overlay.appendChild(el);
+  return el;
+}
+
+/** Players with the top score (all of them on a tie), or nobody if the best is `floor` or less. */
+export function topScorers(players: MinigamePlayer[], score: (p: MinigamePlayer) => number, floor = -Infinity): number[] {
+  const best = Math.max(...players.map(score));
+  if (best <= floor) return [];
+  return players.filter((p) => score(p) === best).map((p) => p.seat);
+}

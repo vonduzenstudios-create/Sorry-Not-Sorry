@@ -43,10 +43,20 @@ You carry one item at a time. Get them from purple **?** spaces or the yellow sh
 
 Orange **X** spaces start a battle: everyone pays into a pot and the minigame winners split it. In the last 5 turns blue and red spaces count double. At the end, three bonus stars go to the top minigame earner, the richest moment and the most **!** spaces.
 
+## Minigames
+
+Twenty minigames, each with its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
+
+| Type | Minigames |
+| --- | --- |
+| 4-player | Bumper Brawl ⚔, Hex Hop ⚔, Bomb Drop ⚔, Trace Race ⚔, Coin Shower ⚔, Quick Draw ⚔, Pump Pump Pop ⚔, Parrot Says ⚔, Paint Panic ⚔, Sweep Leap ⚔ |
+| 2 vs 2 | Puck Rush, Cannon Volley, Tug Tussle, Treasure Haul, Hoop Troop |
+| 1 vs 3 | Rolling Rock, Beam Me Up, Peekaboo Panic, Snowball Siege, Giant Shove |
+
 ## Dev shortcuts
 
 - `?debug=board&turns=10&board=western`: board game with four CPUs (`pirate`, `western` or `space`)
-- `?debug=minigame&id=bumper&play=1`: loop one minigame (`play=1` gives you seat 1)
+- `?debug=minigame&id=bumper&play=1`: loop one minigame (`play=1` gives you seat 1, `duel=1` plays it one on one)
 - `?debug=ending`: results screen with sample numbers
 - `?speed=4`: run the game faster
 
