@@ -82,6 +82,7 @@ export class EndingScene implements Scene {
 
   enter(game: Game): void {
     this.game = game;
+    if (game.net) game.net.finished = true;
     this.scene.add(skyDome(0xb8a8ff, 0xffe1f0));
     addLights(this.scene);
     this.buildStage();

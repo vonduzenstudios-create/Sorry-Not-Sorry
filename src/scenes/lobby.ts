@@ -173,7 +173,8 @@ export class LobbyScene implements Scene {
     game.rng.reset(seed);
     game.session.seats = [];
     game.session.turns = 10;
-    const net = new Lockstep(me, this.names.length, links, this.names, () => game.rng.seed, {
+    let lastWarn = -Infinity;
+    const net = new Lockstep(me, this.names.length, links, this.names, () => game.netHash(), {
       onDrop: (peer) => {
         const c = net.controllers[peer];
         c.gone = true;
@@ -181,12 +182,15 @@ export class LobbyScene implements Scene {
         game.notify(`${this.names[peer]} left. A CPU takes over.`);
       },
       onHostLost: () => {
+        const finished = net.finished;
         game.leaveOnline();
-        game.scenes.go(new TitleScene('The host left the game.'));
+        game.scenes.go(new TitleScene(finished ? undefined : 'The host left the game.'));
       },
       onDesync: (frame) => {
         console.warn(`Desync detected at frame ${frame}`);
-        game.notify('Games are out of sync! Results may differ between players.');
+        if (frame - lastWarn < 60 * 15) return;
+        lastWarn = frame;
+        game.notify('Games drifted out of sync. Re-syncing at the next turn...');
       },
     });
     game.goOnline(net, this.peer);

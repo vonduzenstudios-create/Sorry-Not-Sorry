@@ -113,6 +113,11 @@ export class SelectScene implements Scene {
     for (const c of this.game.controllers) {
       if (c.gone) continue;
       const picker = this.pickers.find((p) => p.controller === c);
+      // Online, only the host starts the game.
+      if (c.pressed('start') && this.ready() && this.canStart(c)) {
+        this.start();
+        return;
+      }
       if (!picker) {
         if (c.pressed('a')) this.join(c);
         else if (c.pressed('b') && this.pickers.length === 0 && !this.game.net) this.back();
@@ -141,9 +146,6 @@ export class SelectScene implements Scene {
         }
         this.game.audio.play('back');
         this.refresh();
-      } else if (c.pressed('start') && this.ready()) {
-        this.start();
-        return;
       }
     }
 
@@ -159,6 +161,10 @@ export class SelectScene implements Scene {
     });
 
     this.placeLabels();
+  }
+
+  private canStart(c: Controller): boolean {
+    return !this.game.net || c === this.game.net.controllers[0];
   }
 
   private ready(): boolean {
@@ -194,7 +200,7 @@ export class SelectScene implements Scene {
       el.querySelector('.tag')!.textContent = owner >= 0 ? `Player ${owner + 1}` : ROSTER[i].tagline;
     });
     if (this.pickers.length === 0) this.prompt.textContent = 'Press A to join';
-    else if (this.ready()) this.prompt.textContent = 'Press Start!';
+    else if (this.ready()) this.prompt.textContent = this.game.net && !this.game.net.isHost ? 'Waiting for the host to start...' : 'Press Start!';
     else this.prompt.textContent = 'Pick a character';
   }
 

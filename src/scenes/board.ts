@@ -40,6 +40,16 @@ export interface BoardPlayer {
   stats: PlayerStats;
 }
 
+/** Everything the turn flow depends on; online, guests adopt the host's at checkpoints. */
+interface BoardSnapshot {
+  rng: number;
+  starSpace: number;
+  roundColors: ('blue' | 'red')[];
+  lastMinigame: string;
+  lastFive: boolean;
+  players: { spaceId: number; coins: number; stars: number; item: ItemId | null; stats: PlayerStats }[];
+}
+
 export interface PlayerStats {
   minigameCoins: number;
   minigamesWon: number;
@@ -152,14 +162,17 @@ export class BoardScene implements Scene {
       this.hud.setTurn(this.turn, turns);
       if (turns >= 10 && this.turn === turns - 4) await this.lastFiveEvent();
       for (let i = 0; i < this.players.length; i++) {
+        await this.checkpoint(`turn${this.turn}-p${i}`);
         this.active = i;
         this.refreshHud();
         await this.playerTurn(this.players[i]);
       }
       this.active = -1;
       this.refreshHud();
+      await this.checkpoint(`turn${this.turn}-minigame`);
       await this.minigame();
     }
+    await this.checkpoint('results');
     await this.results();
   }
 
@@ -815,7 +828,9 @@ export class BoardScene implements Scene {
     await this.say(`Minigame time! It's ${label} minigame!`, undefined, 1.6);
 
     const def = this.pickMinigame(kind);
-    const winners = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, teams), 'round');
+    const played = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, teams), 'round');
+    // Online, the host's result is the one that counts.
+    const winners = await this.sync(`turn${this.turn}-winners`, played);
     this.roundColors = [];
 
     for (const seat of winners) {
@@ -849,6 +864,63 @@ export class BoardScene implements Scene {
       stats: { ...p.stats },
     }));
     this.game.scenes.go(new EndingScene(final));
+  }
+
+  // ---------------------------------------------------------------- online
+
+  /**
+   * Online: waits until every peer reaches `key`, then everyone continues on
+   * the same frame with the host's `data`. Offline it returns `data` at once.
+   */
+  private async sync<T>(key: string, data: T): Promise<T> {
+    const net = this.game.net;
+    if (!net) return data;
+    net.barrier(key, data);
+    await this.tasks.until(() => net.isReleased(key));
+    return net.released(key) as T;
+  }
+
+  /** A turn boundary: everyone lines up and takes the host's board state. */
+  private async checkpoint(key: string): Promise<void> {
+    if (!this.game.net) return;
+    this.restore(await this.sync(key, this.snapshot()));
+  }
+
+  private snapshot(): BoardSnapshot {
+    return {
+      rng: this.game.rng.seed,
+      starSpace: this.starSpace,
+      roundColors: [...this.roundColors],
+      lastMinigame: this.lastMinigame,
+      lastFive: this.lastFive,
+      players: this.players.map((p) => ({ spaceId: p.spaceId, coins: p.coins, stars: p.stars, item: p.item, stats: { ...p.stats } })),
+    };
+  }
+
+  private restore(s: BoardSnapshot): void {
+    this.game.rng.reset(s.rng);
+    if (s.starSpace !== this.starSpace && s.starSpace >= 0) {
+      this.star.visible = true;
+      this.star.position.copy(this.spaces[s.starSpace].pos).setY(2.2);
+    }
+    this.starSpace = s.starSpace;
+    this.roundColors = [...s.roundColors];
+    this.lastMinigame = s.lastMinigame;
+    this.lastFive = s.lastFive;
+    let moved = false;
+    s.players.forEach((d, i) => {
+      const p = this.players[i];
+      moved ||= p.spaceId !== d.spaceId;
+      Object.assign(p, { spaceId: d.spaceId, coins: d.coins, stars: d.stars, item: d.item, stats: { ...d.stats } });
+    });
+    if (moved) this.spreadPlayers(true);
+    this.refreshHud();
+  }
+
+  digest(): number {
+    let h = this.turn * 31 + this.active + this.starSpace * 7 + (this.runner?.active ? 1000 : 0);
+    for (const p of this.players) h = Math.imul(h, 16777619) ^ (p.spaceId * 997 + p.coins * 31 + p.stars);
+    return h >>> 0;
   }
 
   // ---------------------------------------------------------------- helpers
