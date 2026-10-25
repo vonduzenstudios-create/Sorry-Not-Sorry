@@ -29,7 +29,8 @@ export class MinigameRunner {
     this.tasks.update(dt);
     if (!this.mg) return;
     if (this.playing) {
-      this.mg.play(dt);
+      // A decided game stops simulating while the runner wraps it up.
+      if (!this.mg.winners) this.mg.play(dt);
       this.remaining -= dt;
       if (this.clock) this.clock.textContent = String(Math.max(0, Math.ceil(this.remaining)));
     }
@@ -79,7 +80,7 @@ export class MinigameRunner {
     }
     big.textContent = 'GO!';
     game.audio.play('confirm');
-    game.audio.playSong(def.kind === 'ffa' ? chaseTheme : tenseTheme);
+    game.audio.playSong(def.song ?? (def.kind === 'ffa' ? chaseTheme : tenseTheme));
 
     this.clock = document.createElement('div');
     this.clock.className = 'mg-clock panel';

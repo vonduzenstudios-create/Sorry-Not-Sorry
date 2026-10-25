@@ -1,12 +1,12 @@
 import type { AudioEngine } from './engine';
 import { noteToFreq, playVoice, type Instrument } from './synth';
 
-export type SfxName = 'select' | 'confirm' | 'back' | 'coin' | 'jump' | 'star' | 'dice' | 'boom' | 'join';
+export type SfxName = 'select' | 'confirm' | 'back' | 'coin' | 'jump' | 'star' | 'dice' | 'boom' | 'join' | 'pop';
 
 type Step = [instrument: Instrument, note: string, offset: number, duration: number, volume: number];
 
 /** Each SFX is a tiny score of synth hits relative to "now". */
-const RECIPES: Record<Exclude<SfxName, 'jump' | 'boom' | 'dice'>, Step[]> = {
+const RECIPES: Record<Exclude<SfxName, 'jump' | 'boom' | 'dice' | 'pop'>, Step[]> = {
   select: [['square', 'A5', 0, 0.05, 0.25]],
   confirm: [
     ['square', 'C6', 0, 0.06, 0.3],
@@ -67,6 +67,32 @@ export function playSfx(engine: AudioEngine, name: SfxName): void {
     n.start(now);
     n.stop(now + 0.75);
     playVoice(engine, out, { instrument: 'kick', freq: 0, time: now, duration: 0.2, volume: 1 });
+    return;
+  }
+
+  if (name === 'pop') {
+    // Short bright noise burst with a falling blip: balloons, paint splats, snowballs.
+    const n = ctx.createBufferSource();
+    n.buffer = engine.noise;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 1200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.7, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    n.connect(hp).connect(g).connect(out);
+    n.start(now);
+    n.stop(now + 0.14);
+    const o = ctx.createOscillator();
+    const og = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(900, now);
+    o.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+    og.gain.setValueAtTime(0.3, now);
+    og.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    o.connect(og).connect(out);
+    o.start(now);
+    o.stop(now + 0.14);
     return;
   }
 

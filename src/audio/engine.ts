@@ -1,5 +1,6 @@
 import { Sequencer, type Song } from './sequencer';
 import { playSfx, type SfxName } from './sfx';
+import { noteToFreq, playVoice, type Instrument } from './synth';
 
 /**
  * WebAudio front door. Everything audible is synthesized: there are no
@@ -46,6 +47,11 @@ export class AudioEngine {
 
   play(name: SfxName): void {
     if (this.ready) playSfx(this, name);
+  }
+
+  /** One synth note on the SFX bus, for games that play tunes (call-and-response, rhythm). */
+  note(instrument: Instrument, note: string, duration = 0.15, volume = 0.3): void {
+    if (this.ready) playVoice(this, this.sfx, { instrument, freq: noteToFreq(note), time: this.ctx!.currentTime, duration, volume });
   }
 
   /** Starts a song now, or as soon as audio is unlocked. */
