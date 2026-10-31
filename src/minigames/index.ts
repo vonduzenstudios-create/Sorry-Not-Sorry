@@ -11,6 +11,7 @@ import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
 import { fuseFrenzy } from './fusefrenzy';
 import { giantShove } from './giantshove';
+import { graveyardShift } from './graveshift';
 import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
 import { hotFuse } from './hotfuse';
@@ -26,6 +27,7 @@ import { rollingRock } from './rollingrock';
 import { snowballSiege } from './snowsiege';
 import { spikeRoller } from './spikeroller';
 import { sweepLeap } from './sweepleap';
+import { swordSpin } from './swordspin';
 import { tankTangle } from './tanktangle';
 import { traceRace } from './tracerace';
 import { treasureHaul } from './treasurehaul';
@@ -51,6 +53,8 @@ export const MINIGAMES: MinigameDef[] = [
   memoryMatch,
   jumpRopeJam,
   balloonBounce,
+  graveyardShift,
+  swordSpin,
   puckRush,
   cannonVolley,
   tugTussle,
