@@ -45,7 +45,7 @@ Orange **X** spaces start a battle: everyone pays into a pot and the minigame wi
 
 ## Minigames
 
-Twenty-two minigames, each with its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
+Every minigame has its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
 
 | Type | Minigames |
 | --- | --- |
