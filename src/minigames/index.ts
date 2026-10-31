@@ -4,6 +4,7 @@ import { bombDrop } from './bombdrop';
 import { boogieStomp } from './boogiestomp';
 import { bumperBrawl } from './bumper';
 import { cannonVolley } from './cannonvolley';
+import { chillyChute } from './chillychute';
 import { coinShower } from './coinshower';
 import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
@@ -21,6 +22,7 @@ import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
 import { snowballSiege } from './snowsiege';
 import { sweepLeap } from './sweepleap';
+import { tankTangle } from './tanktangle';
 import { traceRace } from './tracerace';
 import { treasureHaul } from './treasurehaul';
 import { tugTussle } from './tugtussle';
@@ -46,6 +48,8 @@ export const MINIGAMES: MinigameDef[] = [
   tugTussle,
   treasureHaul,
   hoopTroop,
+  chillyChute,
+  tankTangle,
   rollingRock,
   beamMeUp,
   peekabooPanic,
