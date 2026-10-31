@@ -1,3 +1,4 @@
+import { archerAlley } from './archeralley';
 import { beamHop } from './beamhop';
 import { balloonBounce } from './balloonbounce';
 import { beamMeUp } from './beammeup';
@@ -20,6 +21,7 @@ import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
 import { puckRush } from './puckrush';
+import { platformPop } from './platformpop';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
@@ -39,6 +41,8 @@ export const MINIGAMES: MinigameDef[] = [
   traceRace,
   coinShower,
   quickDraw,
+  archerAlley,
+  platformPop,
   pumpPumpPop,
   parrotSays,
   paintPanic,

@@ -45,11 +45,11 @@ Orange **X** spaces start a battle: everyone pays into a pot and the minigame wi
 
 ## Minigames
 
-Twenty minigames, each with its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
+Twenty-two minigames, each with its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
 
 | Type | Minigames |
 | --- | --- |
-| 4-player | Bumper Brawl ⚔, Hex Hop ⚔, Bomb Drop ⚔, Trace Race ⚔, Coin Shower ⚔, Quick Draw ⚔, Pump Pump Pop ⚔, Parrot Says ⚔, Paint Panic ⚔, Sweep Leap ⚔ |
+| 4-player | Bumper Brawl ⚔, Hex Hop ⚔, Bomb Drop ⚔, Trace Race ⚔, Coin Shower ⚔, Quick Draw ⚔, Pump Pump Pop ⚔, Parrot Says ⚔, Paint Panic ⚔, Sweep Leap ⚔, Archer Alley ⚔, Platform Pop ⚔ |
 | 2 vs 2 | Puck Rush, Cannon Volley, Tug Tussle, Treasure Haul, Hoop Troop |
 | 1 vs 3 | Rolling Rock, Beam Me Up, Peekaboo Panic, Snowball Siege, Giant Shove |
 
