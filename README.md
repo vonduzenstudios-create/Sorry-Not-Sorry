@@ -51,7 +51,7 @@ Every minigame has its own rules and CPU players. Ones marked ⚔ can also settl
 | --- | --- |
 | 4-player | Bumper Brawl ⚔, Hex Hop ⚔, Bomb Drop ⚔, Trace Race ⚔, Coin Shower ⚔, Quick Draw ⚔, Pump Pump Pop ⚔, Parrot Says ⚔, Paint Panic ⚔, Sweep Leap ⚔, Archer Alley ⚔, Platform Pop ⚔ |
 | 2 vs 2 | Puck Rush, Cannon Volley, Tug Tussle, Treasure Haul, Hoop Troop |
-| 1 vs 3 | Rolling Rock, Beam Me Up, Peekaboo Panic, Snowball Siege, Giant Shove |
+| 1 vs 3 | Rolling Rock, Beam Me Up, Peekaboo Panic, Snowball Siege, Giant Shove, Ghost Hunt, Bridge Burn |
 
 ## Dev shortcuts
 

@@ -4,6 +4,7 @@ import { balloonBounce } from './balloonbounce';
 import { beamMeUp } from './beammeup';
 import { bombDrop } from './bombdrop';
 import { boogieStomp } from './boogiestomp';
+import { bridgeBurn } from './bridgeburn';
 import { bumperBrawl } from './bumper';
 import { cannonVolley } from './cannonvolley';
 import { chillyChute } from './chillychute';
@@ -13,6 +14,7 @@ import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
 import { fuseFrenzy } from './fusefrenzy';
 import { dodgeDash } from './dodgedash';
+import { ghostHunt } from './ghosthunt';
 import { giantShove } from './giantshove';
 import { graveyardShift } from './graveshift';
 import { hexHop } from './hexhop';
@@ -89,4 +91,6 @@ export const MINIGAMES: MinigameDef[] = [
   boogieStomp,
   chompChase,
   wallSmash,
+  ghostHunt,
+  bridgeBurn,
 ];
