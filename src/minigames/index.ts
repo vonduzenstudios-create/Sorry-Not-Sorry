@@ -37,6 +37,7 @@ import { puckRush } from './puckrush';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rocketRodeo } from './rocketrodeo';
+import { raftRally } from './raftrally';
 import { rollingRock } from './rollingrock';
 import { skyGlider } from './skyglider';
 import { sniperTower } from './snipertower';
@@ -50,6 +51,7 @@ import { traceRace } from './tracerace';
 import { treasureHaul } from './treasurehaul';
 import { tugTussle } from './tugtussle';
 import { wallSmash } from './wallsmash';
+import { volleyBash } from './volleybash';
 import type { MinigameDef } from './types';
 
 export const MINIGAMES: MinigameDef[] = [
@@ -92,6 +94,8 @@ export const MINIGAMES: MinigameDef[] = [
   tankTangle,
   dodgeDash,
   pipePuzzle,
+  volleyBash,
+  raftRally,
   rollingRock,
   beamMeUp,
   peekabooPanic,
