@@ -1,8 +1,10 @@
 import { beamMeUp } from './beammeup';
 import { bombDrop } from './bombdrop';
+import { boogieStomp } from './boogiestomp';
 import { bumperBrawl } from './bumper';
 import { cannonVolley } from './cannonvolley';
 import { coinShower } from './coinshower';
+import { fuseFrenzy } from './fusefrenzy';
 import { giantShove } from './giantshove';
 import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
@@ -41,4 +43,6 @@ export const MINIGAMES: MinigameDef[] = [
   peekabooPanic,
   snowballSiege,
   giantShove,
+  fuseFrenzy,
+  boogieStomp,
 ];
