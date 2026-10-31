@@ -6,6 +6,7 @@ import { boogieStomp } from './boogiestomp';
 import { bumperBrawl } from './bumper';
 import { cannonVolley } from './cannonvolley';
 import { chillyChute } from './chillychute';
+import { chompChase } from './chompchase';
 import { coinShower } from './coinshower';
 import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
@@ -33,6 +34,7 @@ import { traceRace } from './tracerace';
 import { treasureHaul } from './treasurehaul';
 import { tugTussle } from './tugtussle';
 import type { MinigameDef } from './types';
+import { wallSmash } from './wallsmash';
 
 export const MINIGAMES: MinigameDef[] = [
   bumperBrawl,
@@ -69,4 +71,6 @@ export const MINIGAMES: MinigameDef[] = [
   giantShove,
   fuseFrenzy,
   boogieStomp,
+  chompChase,
+  wallSmash,
 ];
