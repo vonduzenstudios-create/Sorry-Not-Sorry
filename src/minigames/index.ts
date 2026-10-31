@@ -26,6 +26,7 @@ import { jumpRopeJam } from './jumprope';
 import { knightJoust } from './knightjoust';
 import { memoryMatch } from './memorymatch';
 import { moleBonk } from './molebonk';
+import { lavaRise } from './lavarise';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -34,6 +35,7 @@ import { platformPop } from './platformpop';
 import { puckRush } from './puckrush';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
+import { rocketRodeo } from './rocketrodeo';
 import { rollingRock } from './rollingrock';
 import { skyGlider } from './skyglider';
 import { sniperTower } from './snipertower';
@@ -75,6 +77,8 @@ export const MINIGAMES: MinigameDef[] = [
   moleBonk,
   hoverRace,
   knightJoust,
+  rocketRodeo,
+  lavaRise,
   puckRush,
   cannonVolley,
   tugTussle,
