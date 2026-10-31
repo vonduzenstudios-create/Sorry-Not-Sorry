@@ -5,527 +5,597 @@ import { makeCloud } from '../render/props';
 import { toon, toonMesh } from '../render/toon';
 import { bird, clearOfPath, crab, flyBird, glowSprite, instanced, scatter, seeded, Smoke, textTexture, type Bird } from './decor';
 import { BoardBuilder } from './graph';
+import {
+  anchor,
+  bake,
+  barrel,
+  buoy,
+  bunting,
+  cannon,
+  cannonballs,
+  chest,
+  crate,
+  dolphin,
+  fort,
+  ghostWreck,
+  hangingSign,
+  house,
+  jungleTree,
+  lampPost,
+  lighthouse,
+  netRack,
+  palmTree,
+  pier,
+  pirateNpc,
+  rowboat,
+  ropeCoil,
+  sharkFin,
+  ship,
+  signpost,
+  skullRock,
+  sloop,
+  stall,
+  starfishGeo,
+  tentacle,
+  tiki,
+  torch,
+  turtle,
+  Wood,
+  type Npc,
+  type Tentacle,
+} from './pirateProps';
+import { buildTerrain, fbm, SEA_LEVEL, waterMaterial, type Isle, type Patch, type Terrain } from './pirateTerrain';
 import type { BoardDef, Space } from './types';
 
 /**
- * Pirate Cove: a ring of sandy islands around a lagoon with a pirate ship.
- * Two side paths cut across the lagoon.
+ * Pirate Cove: a ring of sandy islands around a lagoon with the pirate
+ * flagship at anchor. A port town sits to the west, a fort guards the east,
+ * and Skull Island's jungle and volcano loom over the north shore. Two side
+ * paths cut across the lagoon: a haunted boardwalk past a ghost wreck
+ * (locked) and Treasure Isle.
  */
-function layout(): { spaces: Space[]; startId: number } {
-  const b = new BoardBuilder()
-    .loop(
-      [
-        [0, 15],
-        [11, 15],
-        [20, 11],
-        [24, 3],
-        [22, -6],
-        [15, -13],
-        [4, -15],
-        [-7, -14],
-        [-16, -10],
-        [-23, -3],
-        [-22, 7],
-        [-13, 14],
-      ],
-      // 40 spaces, starting at the dock and going counter-clockwise (seen from above).
-      'S B B R B I* B H B B ' + 'R B T B H* B B V B I ' + 'B P R B H B B* I B R ' + 'B H B B V* B B I R B',
-    )
-    // Ghost-ship shortcut on the east side, behind a locked gate.
-    .branch(6, 15, [[12, 2], [8, -6]], 'B R H B R', true)
-    // Treasure isle path on the west side.
-    .branch(25, 34, [[-10, -6], [-11, 4]], 'B I B* H R');
-  return { spaces: b.spaces, startId: b.loopId(0) };
-}
-
-let waterMat: THREE.ShaderMaterial | null = null;
-const flags: THREE.Object3D[] = [];
-
-function water(): THREE.Mesh {
-  waterMat = new THREE.ShaderMaterial({
-    uniforms: {
-      time: { value: 0 },
-      deep: { value: new THREE.Color(0x7cc8ec) },
-      light: { value: new THREE.Color(0xa8e2f7) },
-      foam: { value: new THREE.Color(0xeefaff) },
-    },
-    vertexShader: /* glsl */ `
-      varying vec2 vXZ;
-      void main() {
-        vec4 w = modelMatrix * vec4(position, 1.0);
-        vXZ = w.xz;
-        gl_Position = projectionMatrix * viewMatrix * w;
-      }
-    `,
-    // Banded, cel-style ripples: two crossing sine fields quantized to flat steps.
-    fragmentShader: /* glsl */ `
-      uniform float time;
-      uniform vec3 deep;
-      uniform vec3 light;
-      uniform vec3 foam;
-      varying vec2 vXZ;
-      void main() {
-        float w = sin(vXZ.x * 0.35 + time * 0.8) + sin(vXZ.y * 0.42 - time * 0.6 + vXZ.x * 0.15);
-        vec3 c = deep;
-        if (w > 0.9) c = light;
-        if (w > 1.75) c = foam;
-        gl_FragColor = vec4(c, 1.0);
-        #include <colorspace_fragment>
-      }
-    `,
-  });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), waterMat);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.45;
-  mesh.receiveShadow = true;
-  return mesh;
-}
-
-/** Sand and grass discs under every space merge into island strips. */
-function islands(spaces: Space[]): THREE.Group {
-  const g = new THREE.Group();
-  const sandGeo = new THREE.CylinderGeometry(2.1, 2.4, 0.9, 28);
-  const grassGeo = new THREE.CylinderGeometry(1.55, 1.6, 0.2, 28);
-  const sand = toon(Palette.sand);
-  const grass = toon(Palette.grass);
-  for (const s of spaces) {
-    // Tiny height offsets stop overlapping tops from z-fighting.
-    const jitter = (s.id % 7) * 0.004;
-    const sm = new THREE.Mesh(sandGeo, sand);
-    sm.position.set(s.pos.x, -0.48 + jitter, s.pos.z);
-    sm.receiveShadow = true;
-    const gm = new THREE.Mesh(grassGeo, grass);
-    gm.position.set(s.pos.x, -0.08 + jitter, s.pos.z);
-    gm.receiveShadow = true;
-    g.add(sm, gm);
-  }
-  return g;
-}
-
-export function palmTree(height = 3): THREE.Group {
-  const tree = new THREE.Group();
-  const segs = 5;
-  let lean = 0;
-  for (let i = 0; i < segs; i++) {
-    const seg = toonMesh(new THREE.CylinderGeometry(0.16 - i * 0.015, 0.2 - i * 0.015, height / segs, 10), 0xc99a6b, { outline: 0.02 });
-    lean += 0.06;
-    seg.position.set(lean * i * 0.6, (i + 0.5) * (height / segs), 0);
-    seg.rotation.z = -lean * 0.5;
-    tree.add(seg);
-  }
-  const top = new THREE.Vector3(lean * segs * 0.6, height, 0);
-  const leafGeo = new THREE.SphereGeometry(0.5, 12, 8);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    const leaf = toonMesh(leafGeo, Palette.green, { outline: 0.02 });
-    leaf.scale.set(1.8, 0.18, 0.55);
-    leaf.position.copy(top).add(new THREE.Vector3(Math.cos(a) * 0.8, -0.15, Math.sin(a) * 0.8));
-    leaf.rotation.set(0, -a, -0.45);
-    tree.add(leaf);
-  }
-  for (let i = 0; i < 3; i++) {
-    const nut = toonMesh(new THREE.SphereGeometry(0.13, 10, 8), 0x8a5a3b, { outline: 0.015 });
-    nut.position.copy(top).add(new THREE.Vector3(Math.cos(i * 2) * 0.18, -0.25, Math.sin(i * 2) * 0.18));
-    tree.add(nut);
-  }
-  return tree;
-}
-
-function barrel(): THREE.Group {
-  const b = new THREE.Group();
-  const body = toonMesh(new THREE.CylinderGeometry(0.32, 0.32, 0.75, 14), 0xb5784a, { outline: 0.02 });
-  body.position.y = 0.37;
-  b.add(body);
-  for (const y of [0.15, 0.6]) {
-    const band = toonMesh(new THREE.TorusGeometry(0.33, 0.035, 6, 18), 0x6b4f6e, { outline: false });
-    band.rotation.x = Math.PI / 2;
-    band.position.y = y;
-    b.add(band);
-  }
-  return b;
-}
-
-function chest(): THREE.Group {
-  const c = new THREE.Group();
-  const box = toonMesh(new THREE.BoxGeometry(0.9, 0.5, 0.6), 0xb5784a, { outline: 0.025 });
-  box.position.y = 0.25;
-  const lid = toonMesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 16, 1, false, 0, Math.PI), 0xa0663e, { outline: 0.025 });
-  lid.rotation.z = Math.PI / 2;
-  lid.position.y = 0.5;
-  const lock = toonMesh(new THREE.BoxGeometry(0.16, 0.2, 0.05), Palette.yellow, { outline: 0.015 });
-  lock.position.set(0, 0.48, 0.31);
-  c.add(box, lid, lock);
-  return c;
-}
-
-function skullFlag(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 96;
-  const g = c.getContext('2d')!;
-  g.fillStyle = '#2b2440';
-  g.fillRect(0, 0, 128, 96);
-  g.fillStyle = '#fff6e6';
-  g.beginPath();
-  g.arc(64, 42, 22, 0, Math.PI * 2);
-  g.fill();
-  g.fillRect(52, 54, 24, 14);
-  g.fillStyle = '#2b2440';
-  g.beginPath();
-  g.arc(55, 42, 6, 0, Math.PI * 2);
-  g.arc(73, 42, 6, 0, Math.PI * 2);
-  g.fill();
-  g.strokeStyle = '#fff6e6';
-  g.lineWidth = 8;
-  g.lineCap = 'round';
-  g.beginPath();
-  g.moveTo(30, 70);
-  g.lineTo(98, 88);
-  g.moveTo(98, 70);
-  g.lineTo(30, 88);
-  g.stroke();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function ship(): THREE.Group {
-  const s = new THREE.Group();
-  // Hull: side profile extruded across the beam.
-  const profile = new THREE.Shape();
-  profile.moveTo(-4, 1.4);
-  profile.lineTo(4.4, 1.4);
-  profile.quadraticCurveTo(3.8, -0.2, 2.4, -0.6);
-  profile.lineTo(-3, -0.6);
-  profile.quadraticCurveTo(-4.2, 0, -4, 1.4);
-  const hullGeo = new THREE.ExtrudeGeometry(profile, { depth: 2.6, bevelEnabled: true, bevelSize: 0.25, bevelThickness: 0.25, bevelSegments: 3 });
-  hullGeo.translate(0, 0, -1.3);
-  hullGeo.computeVertexNormals();
-  const hull = toonMesh(hullGeo, 0x9a6a4a, { outline: 0.05 });
-  const stripe = toonMesh(new THREE.BoxGeometry(8.6, 0.25, 3.15), Palette.coral, { outline: 0.03 });
-  stripe.position.set(0.2, 1.1, 0);
-  const deck = toonMesh(new THREE.BoxGeometry(8, 0.1, 2.6), 0xd8a878, { outline: false });
-  deck.position.y = 1.45;
-  s.add(hull, stripe, deck);
-
-  // Captain's cabin on the stern with a little lit window.
-  const cabin = toonMesh(new THREE.BoxGeometry(1.8, 1.1, 2.4), 0xb5784a, { outline: 0.03 });
-  cabin.position.set(-3, 2.05, 0);
-  const cabinRoof = toonMesh(new THREE.BoxGeometry(2.1, 0.14, 2.7), Palette.coral, { outline: 0.02 });
-  cabinRoof.position.set(-3, 2.65, 0);
-  const cabinWin = new THREE.Mesh(new THREE.CircleGeometry(0.22, 14), new THREE.MeshBasicMaterial({ color: 0xffe38a }));
-  cabinWin.position.set(-3, 2.05, 1.21);
-  s.add(cabin, cabinRoof, cabinWin);
-  // Ship's wheel on top of the cabin.
-  const wheel = toonMesh(new THREE.TorusGeometry(0.32, 0.05, 6, 16), 0x8a5a3b, { outline: 0.012 });
-  wheel.position.set(-2.4, 3.1, 0);
-  wheel.rotation.y = Math.PI / 2;
-  for (let i = 0; i < 4; i++) {
-    const spoke = toonMesh(new THREE.BoxGeometry(0.04, 0.8, 0.04), 0x8a5a3b, { outline: false });
-    spoke.rotation.x = (i / 4) * Math.PI;
-    wheel.add(spoke);
-  }
-  s.add(wheel);
-  shipWheel = wheel;
-
-  // Portholes along the hull.
-  const portGeo = new THREE.CircleGeometry(0.16, 12);
-  const portMat = new THREE.MeshBasicMaterial({ color: Palette.ink });
-  for (const x of [-1, 1, 3]) {
-    for (const side of [-1, 1]) {
-      const port = new THREE.Mesh(portGeo, portMat);
-      port.position.set(x, 0.55, side * 1.56);
-      if (side < 0) port.rotation.y = Math.PI;
-      s.add(port);
-    }
-  }
-
-  // Bowsprit and figurehead.
-  const sprit = toonMesh(new THREE.CylinderGeometry(0.06, 0.1, 2.4, 8), 0x8a5a3b, { outline: 0.02 });
-  sprit.rotation.z = -1.15;
-  sprit.position.set(5.3, 1.95, 0);
-  s.add(sprit);
-
-  const masts: [number, number][] = [
-    [-1.6, 4.2],
-    [1.4, 5],
-  ];
-  for (const [x, h] of masts) {
-    const mast = toonMesh(new THREE.CylinderGeometry(0.12, 0.15, h, 10), 0x8a5a3b, { outline: 0.03 });
-    mast.position.set(x, 1.4 + h / 2, 0);
-    s.add(mast);
-    // Two billowing square sails per mast, the top one smaller.
-    for (const [y, w, sh] of [
-      [1.4 + h * 0.42, 3, h * 0.36],
-      [1.4 + h * 0.78, 2.2, h * 0.24],
-    ] as const) {
-      const sail = toonMesh(new THREE.CylinderGeometry(w, w, sh, 16, 1, true, -0.45, 0.9), Palette.cream, { outline: 0.025 });
-      (sail.material as THREE.Material).side = THREE.DoubleSide;
-      sail.rotation.y = Math.PI / 2;
-      sail.position.set(x - w + 0.25, y, 0);
-      sail.scale.z = 0.95;
-      const yard = toonMesh(new THREE.CylinderGeometry(0.05, 0.05, w * 0.95, 6), 0x8a5a3b, { outline: 0.012 });
-      yard.rotation.x = Math.PI / 2;
-      yard.position.set(x + 0.2, y + sh / 2, 0);
-      s.add(sail, yard);
-    }
-    // Rigging down to the rails.
-    for (const side of [-1, 1]) {
-      const top = new THREE.Vector3(x, 1.4 + h * 0.95, 0);
-      const foot = new THREE.Vector3(x - 0.6, 1.5, side * 1.35);
-      const rope = toonMesh(new THREE.CylinderGeometry(0.02, 0.02, top.distanceTo(foot), 4), 0x6b4f6e, { outline: false });
-      rope.position.copy(top).add(foot).multiplyScalar(0.5);
-      rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.clone().sub(foot).normalize());
-      s.add(rope);
-    }
-  }
-  // Crow's nest on the main mast.
-  const nest = toonMesh(new THREE.CylinderGeometry(0.42, 0.32, 0.4, 12, 1, true), 0xb5784a, { outline: 0.02 });
-  (nest.material as THREE.Material).side = THREE.DoubleSide;
-  nest.position.set(1.4, 5.7, 0);
-  s.add(nest);
-
-  const flag = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.1, 0.8, 8, 1),
-    new THREE.MeshBasicMaterial({ map: skullFlag(), side: THREE.DoubleSide }),
+function layout(): { spaces: Space[]; startId: number; boardwalk: Set<number> } {
+  const b = new BoardBuilder().loop(
+    [
+      [0, 15],
+      [11, 15],
+      [20, 11],
+      [24, 3],
+      [22, -6],
+      [15, -13],
+      [4, -15],
+      [-7, -14],
+      [-16, -10],
+      [-23, -3],
+      [-22, 7],
+      [-13, 14],
+    ],
+    // 40 spaces, starting at the dock and going counter-clockwise (seen from above).
+    'S B B R B I* B H B B ' + 'R B T B H* B B V B I ' + 'B P R B H B B* I B R ' + 'B H B B V* B B I R B',
   );
-  flag.position.set(1.95, 6.6, 0);
-  s.add(flag);
-  flags.push(flag);
-  const cannonGeo = new THREE.CylinderGeometry(0.16, 0.22, 0.9, 12);
-  for (const x of [-2, 0, 2]) {
-    const cannon = toonMesh(cannonGeo, 0x4a4060, { outline: 0.02 });
-    cannon.rotation.x = Math.PI / 2;
-    cannon.position.set(x, 1.05, 1.55);
-    s.add(cannon);
-  }
-  // Cannon smoke that puffs out of the middle gun now and then.
-  cannonSmoke = new Smoke(5, 0.35, 1.6, 0.9, 0xffffff, new THREE.Vector3(0, 0.4, 1.4));
-  cannonSmoke.group.position.set(0, 1.05, 2.1);
-  s.add(cannonSmoke.group);
-
-  // A parrot keeps watch from the bow rail.
-  const p = parrot();
-  p.position.set(3.6, 1.5, 1.1);
-  p.rotation.y = 0.6;
-  s.add(p);
-  parrotBird = p;
-  return s;
+  const before = b.spaces.length;
+  // Ghost-ship shortcut on the east side, behind a locked gate.
+  b.branch(6, 15, [[12, 2], [8, -6]], 'B R H B R', true);
+  const boardwalk = new Set<number>();
+  for (let id = before; id < b.spaces.length; id++) boardwalk.add(id);
+  // Treasure isle path on the west side.
+  b.branch(25, 34, [[-10, -6], [-11, 4]], 'B I B* H R');
+  return { spaces: b.spaces, startId: b.loopId(0), boardwalk };
 }
 
-function parrot(): THREE.Group {
-  const p = new THREE.Group();
-  const body = toonMesh(new THREE.CapsuleGeometry(0.16, 0.26, 4, 10), Palette.coral, { outline: 0.015 });
-  body.position.y = 0.3;
-  body.rotation.x = -0.25;
-  const head = toonMesh(new THREE.SphereGeometry(0.15, 12, 8), Palette.coral, { outline: 0.015 });
-  head.position.set(0, 0.58, 0.05);
-  const beak = toonMesh(new THREE.ConeGeometry(0.06, 0.16, 6), Palette.butter, { outline: 0.01 });
-  beak.rotation.x = Math.PI / 2 + 0.5;
-  beak.position.set(0, 0.54, 0.2);
-  const wing = toonMesh(new THREE.SphereGeometry(0.13, 10, 6), Palette.green, { outline: 0.012 });
-  wing.scale.set(0.5, 1.2, 1);
-  for (const side of [-1, 1]) {
-    const w = wing.clone();
-    w.position.set(side * 0.15, 0.32, -0.02);
-    p.add(w);
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), new THREE.MeshBasicMaterial({ color: Palette.ink }));
-    eye.position.set(side * 0.09, 0.62, 0.13);
-    p.add(eye);
-  }
-  const tail = toonMesh(new THREE.BoxGeometry(0.12, 0.35, 0.04), Palette.sky, { outline: 0.01 });
-  tail.position.set(0, 0.1, -0.15);
-  tail.rotation.x = 0.5;
-  p.add(body, head, beak, tail);
-  return p;
-}
+/** Land beyond the path strip. */
+const ISLES: Isle[] = [
+  // Skull Island along the whole north shore, with a volcano and a jungle hill.
+  { x: -2, z: -34, rx: 32, rz: 12, hill: 1.6, hillR: 6, grass: 0x8fdc9c },
+  { x: -9, z: -39, rx: 12, rz: 11, hill: 10, hillR: 8, cone: true },
+  { x: 11, z: -40, rx: 9, rz: 8, hill: 4.5, hillR: 5, grass: 0x8fdc9c },
+  // Waterfall bluff on Skull Island's shore.
+  { x: 15, z: -27, rx: 4, rz: 3, top: 3.6, hill: 0.4, hillR: 2 },
+  // Lighthouse headland.
+  { x: 28, z: -18, rx: 4.5, rz: 3.8, top: 0.5, hill: 0.8, hillR: 2, rocky: true },
+  // Fort hill to the east.
+  { x: 36, z: 0, rx: 9, rz: 11, hill: 2.2, hillR: 3 },
+  // Port town to the west.
+  { x: -36, z: 8, rx: 10, rz: 12.5, hill: 0.5, hillR: 6 },
+  // Treasure Isle in the lagoon.
+  { x: -13.6, z: -0.5, rx: 3.3, rz: 5.2 },
+  // Little palm islets.
+  { x: 31, z: 16, rx: 2.6, rz: 2.2 },
+  { x: -22, z: -21, rx: 2.2, rz: 1.8 },
+];
 
-/** Red-and-cream striped lighthouse on a rocky islet, with a sweeping beam. */
-function lighthouse(): THREE.Group {
-  const l = new THREE.Group();
-  const rock = toonMesh(new THREE.DodecahedronGeometry(3.2, 0), 0xb8b0c8, { outline: 0.05 });
-  rock.scale.set(1, 0.4, 1);
-  rock.position.y = -0.4;
-  l.add(rock);
-  const bands = 5;
-  for (let i = 0; i < bands; i++) {
-    const r0 = 1.2 - i * 0.12;
-    const band = toonMesh(new THREE.CylinderGeometry(r0 - 0.12, r0, 1.2, 18), i % 2 ? Palette.cream : Palette.coral, { outline: 0.035 });
-    band.position.y = 0.6 + i * 1.2 + 0.4;
-    l.add(band);
-  }
-  const top = 0.6 + bands * 1.2 + 0.4;
-  const balcony = toonMesh(new THREE.CylinderGeometry(0.85, 0.85, 0.15, 18), Palette.ink, { outline: false });
-  balcony.position.y = top - 0.55;
-  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.8, 12), new THREE.MeshBasicMaterial({ color: 0xfff2a8 }));
-  lamp.position.y = top;
-  const roof = toonMesh(new THREE.ConeGeometry(0.7, 0.8, 18), Palette.coral, { outline: 0.03 });
-  roof.position.y = top + 0.8;
-  l.add(balcony, lamp, roof);
-  const glow = glowSprite(0xfff2a8, 4, 0.7);
-  glow.position.y = top;
-  l.add(glow);
+const TOWN = new THREE.Vector3(-35.5, 0, 6);
+const FORT = new THREE.Vector3(36.2, 0, 0);
+const TREASURE = new THREE.Vector3(-14.2, 0, -1);
+const KRAKEN = new THREE.Vector3(-31, 0, -14);
+const WATERFALL_X = 15;
 
-  // Beam: a long soft cone swinging round.
-  const pivot = new THREE.Group();
-  pivot.position.y = top;
-  const beamGeo = new THREE.ConeGeometry(1.4, 14, 16, 1, true);
-  beamGeo.translate(0, -7, 0);
-  beamGeo.rotateZ(Math.PI / 2);
-  const beam = new THREE.Mesh(
-    beamGeo,
-    new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
-  );
-  beam.rotation.z = -0.12;
-  pivot.add(beam);
-  l.add(pivot);
-  beamPivot = pivot;
-  return l;
-}
+const PATCHES: Patch[] = [
+  { ax: TOWN.x, az: TOWN.z, bx: TOWN.x, bz: TOWN.z, r: 4.4, color: 0xecd6ae },
+  { ax: TOWN.x + 3, az: TOWN.z - 1.5, bx: -25.5, bz: 2, r: 0.75, color: 0xecd6ae },
+  { ax: TOWN.x - 2, az: TOWN.z + 3, bx: -38, bz: 15.5, r: 0.7, color: 0xecd6ae },
+  { ax: 25.6, az: 0.8, bx: FORT.x - 3.6, bz: 0, r: 0.8, color: 0xecd6ae },
+  { ax: FORT.x, az: FORT.z, bx: FORT.x, bz: FORT.z, r: 3.4, color: 0xd9cfe0 },
+];
 
-/** Big grey rock with a skull face and a cave for a mouth. */
-function skullRock(): THREE.Group {
-  const g = new THREE.Group();
-  const dome = toonMesh(new THREE.SphereGeometry(4, 20, 14), 0xd2cade, { outline: 0.06 });
-  dome.scale.set(1.1, 0.9, 0.9);
-  dome.position.y = 1.4;
-  const jaw = toonMesh(new THREE.CylinderGeometry(2.6, 2.4, 2.4, 16), 0xc4bcd2, { outline: 0.05 });
-  jaw.position.set(0, -0.2, 0.9);
-  g.add(dome, jaw);
-  const holeMat = new THREE.MeshBasicMaterial({ color: Palette.ink });
-  for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.CircleGeometry(0.9, 16), holeMat);
-    eye.position.set(side * 1.45, 2.2, 3.5);
-    eye.rotation.x = -0.35;
-    eye.rotation.y = side * 0.3;
-    g.add(eye);
-  }
-  const mouth = new THREE.Mesh(new THREE.CircleGeometry(1.1, 16, 0, Math.PI), holeMat);
-  mouth.position.set(0, -0.4, 3.32);
-  g.add(mouth);
-  return g;
-}
+// ------------------------------------------------------------------ animated bits
 
-function rowboat(): THREE.Group {
-  const b = new THREE.Group();
-  const hull = toonMesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), 0xc98a5a, { outline: 0.03 });
-  hull.scale.set(0.6, 0.45, 1.4);
-  (hull.material as THREE.Material).side = THREE.DoubleSide;
-  b.add(hull);
-  const seat = toonMesh(new THREE.BoxGeometry(1.1, 0.06, 0.3), 0xe0b080, { outline: 0.01 });
-  seat.position.y = -0.12;
-  b.add(seat);
-  for (const side of [-1, 1]) {
-    const oar = toonMesh(new THREE.CylinderGeometry(0.03, 0.03, 1.8, 5), 0xe0b080, { outline: 0.01 });
-    oar.rotation.z = side * 1.2;
-    oar.position.set(side * 0.8, -0.1, 0);
-    b.add(oar);
-  }
-  return b;
-}
-
-/** Wooden jetty reaching out from the start island. */
-function dock(length: number): THREE.Group {
-  const d = new THREE.Group();
-  const plankGeo = new THREE.BoxGeometry(2, 0.12, 0.45);
-  const planks = Math.round(length / 0.5);
-  for (let i = 0; i < planks; i++) {
-    const p = toonMesh(plankGeo, i % 3 === 1 ? 0xd9a878 : 0xc99a6b, { outline: 0.012 });
-    p.position.set(0, 0, i * 0.5);
-    p.rotation.y = ((i * 37) % 7) * 0.006 - 0.02;
-    d.add(p);
-  }
-  const postGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.6, 8);
-  for (let i = 0; i <= length; i += 2) {
-    for (const side of [-1, 1]) {
-      const post = toonMesh(postGeo, 0x9a6a4a, { outline: 0.015 });
-      post.position.set(side * 1.05, -0.3, i);
-      d.add(post);
-    }
-  }
-  return d;
-}
-
-function buoy(): THREE.Group {
-  const b = new THREE.Group();
-  const base = toonMesh(new THREE.CylinderGeometry(0.4, 0.5, 0.5, 12), Palette.coral, { outline: 0.02 });
-  const mid = toonMesh(new THREE.CylinderGeometry(0.25, 0.35, 0.5, 12), Palette.cream, { outline: 0.02 });
-  mid.position.y = 0.5;
-  const cap = toonMesh(new THREE.ConeGeometry(0.25, 0.4, 12), Palette.coral, { outline: 0.02 });
-  cap.position.y = 0.95;
-  b.add(base, mid, cap);
-  return b;
-}
-
-function sharkFin(): THREE.Mesh {
-  const shape = new THREE.Shape();
-  shape.moveTo(-0.5, 0);
-  shape.quadraticCurveTo(0.1, 0.4, 0.35, 1.1);
-  shape.quadraticCurveTo(0.3, 0.4, 0.5, 0);
-  shape.closePath();
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.1, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2 });
-  geo.translate(0, 0, -0.05);
-  return toonMesh(geo, 0x8a9ac0, { outline: 0.02 });
-}
-
-/** Flat five-armed starfish for the beaches. */
-function starfishGeo(): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 === 0 ? 0.3 : 0.11;
-    const a = (i / 10) * Math.PI * 2;
-    if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 1 });
-  geo.rotateX(-Math.PI / 2);
-  return geo;
-}
-
-/** Wet-sand foam rings round every island; they breathe with the waves. */
-function surf(spaces: Space[]): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(
-    new THREE.RingGeometry(2.3, 2.75, 28).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xf2fbff, transparent: true, opacity: 0.75 }),
-    spaces.length,
-  );
-  mesh.position.y = -0.43;
-  mesh.userData.centres = spaces.map((s) => s.pos.clone().setY(0));
-  return mesh;
-}
-
-/** Things that just need moving every frame. */
 interface Sway {
   obj: THREE.Object3D;
   phase: number;
 }
 
-let waterRef: THREE.InstancedMesh | null = null;
-let shipRef: THREE.Group | null = null;
-let shipWheel: THREE.Object3D | null = null;
-let cannonSmoke: Smoke | null = null;
-let parrotBird: THREE.Object3D | null = null;
-let beamPivot: THREE.Object3D | null = null;
-let fin: THREE.Object3D | null = null;
-const palms: Sway[] = [];
-const bobbers: (Sway & { y: number })[] = [];
-const crabs: (Sway & { x: number; z: number; dir: number })[] = [];
-const gulls: (Bird & { cx: number; cz: number; r: number; y: number; speed: number; phase: number })[] = [];
-const clouds: (Sway & { z: number; y: number })[] = [];
-const wisps: (Sway & { base: THREE.Vector3 })[] = [];
+interface Anim {
+  water: THREE.ShaderMaterial | null;
+  falls: THREE.ShaderMaterial | null;
+  flags: THREE.Mesh[];
+  ship: ReturnType<typeof ship> | null;
+  beam: THREE.Object3D | null;
+  fin: THREE.Object3D | null;
+  palms: Sway[];
+  bobbers: (Sway & { y: number })[];
+  crabs: (Sway & { x: number; z: number; y: number; dir: number })[];
+  gulls: (Bird & { cx: number; cz: number; r: number; y: number; speed: number; phase: number })[];
+  wisps: (Sway & { base: THREE.Vector3 })[];
+  torches: (Sway & { flame: THREE.Object3D; glow: THREE.Sprite })[];
+  npcs: (Npc & { y: number; mode: 'wave' | 'work' | 'look' })[];
+  smokes: { smoke: Smoke; offset: number }[];
+  tentacles: (Tentacle & { phase: number })[];
+  kraken: THREE.Group | null;
+  dolphins: { obj: THREE.Object3D; splash: THREE.Mesh; offset: number }[];
+  turtle: ReturnType<typeof turtle> | null;
+  sparkles: (Sway & { obj: THREE.Sprite })[];
+  fortGuns: { at: THREE.Vector3; yaw: number }[];
+  gunSmoke: Smoke | null;
+}
+
+const anim: Anim = emptyAnim();
+
+function emptyAnim(): Anim {
+  return {
+    water: null,
+    falls: null,
+    flags: [],
+    ship: null,
+    beam: null,
+    fin: null,
+    palms: [],
+    bobbers: [],
+    crabs: [],
+    gulls: [],
+    wisps: [],
+    torches: [],
+    npcs: [],
+    smokes: [],
+    tentacles: [],
+    kraken: null,
+    dolphins: [],
+    turtle: null,
+    sparkles: [],
+    fortGuns: [],
+    gunSmoke: null,
+  };
+}
+
+let boardwalkIds = new Set<number>();
+
+// ------------------------------------------------------------------ scenery
+
+function waterPlane(terrain: Terrain): THREE.Mesh {
+  anim.water = waterMaterial(terrain);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), anim.water);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = SEA_LEVEL;
+  return mesh;
+}
+
+/** Scrolling cel-shaded waterfall down the bluff's face. */
+function waterfall(top: THREE.Vector3, bottom: THREE.Vector3, width: number): THREE.Mesh {
+  anim.falls = new THREE.ShaderMaterial({
+    uniforms: { time: { value: 0 }, a: { value: new THREE.Color(0x9fdcf5) }, b: { value: new THREE.Color(0xf4fcff) } },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float time;
+      uniform vec3 a;
+      uniform vec3 b;
+      varying vec2 vUv;
+      void main() {
+        float s = sin(vUv.y * 22.0 + time * 7.0 + sin(vUv.x * 9.0) * 1.5);
+        vec3 c = s > 0.55 ? b : a;
+        if (vUv.x < 0.08 || vUv.x > 0.92 || vUv.y < 0.1) c = b;
+        gl_FragColor = vec4(c, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+    side: THREE.DoubleSide,
+  });
+  const len = top.distanceTo(bottom);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, len, 1, 1), anim.falls);
+  mesh.position.copy(top).add(bottom).multiplyScalar(0.5);
+  // Plane's local Y runs up the face.
+  const up = top.clone().sub(bottom).normalize();
+  const normal = new THREE.Vector3(0, up.z, -up.y).negate();
+  const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), up, normal);
+  mesh.quaternion.setFromRotationMatrix(m);
+  return mesh;
+}
+
+/** Plank walkway and round pads carrying the ghost path over the water. */
+function boardwalk(spaces: Space[], stat: THREE.Group, scene: THREE.Scene): void {
+  const plank = new THREE.BoxGeometry(1.5, 0.12, 0.36);
+  const post = new THREE.CylinderGeometry(0.1, 0.12, 1.6, 6);
+  const shades = [Wood.ghost, 0x9a8ea4, 0x7f7390];
+  let k = 0;
+  for (const id of boardwalkIds) {
+    const s = spaces[id];
+    const pad = toonMesh(new THREE.CylinderGeometry(1.45, 1.5, 0.28, 20), Wood.ghost, { outline: 0.03 });
+    pad.position.set(s.pos.x, -0.16, s.pos.z);
+    stat.add(pad);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      const p = toonMesh(post, 0x6f6480, { outline: 0.012 });
+      p.position.set(s.pos.x + Math.cos(a) * 1.25, -0.9, s.pos.z + Math.sin(a) * 1.25);
+      stat.add(p);
+    }
+  }
+  for (const s of spaces) {
+    for (const n of s.next) {
+      if (!boardwalkIds.has(s.id) && !boardwalkIds.has(n)) continue;
+      const a = s.pos;
+      const b = spaces[n].pos;
+      const dir = new THREE.Vector3().subVectors(b, a).setY(0);
+      const len = dir.length();
+      dir.normalize();
+      const side = new THREE.Vector3(-dir.z, 0, dir.x);
+      const yaw = Math.atan2(dir.x, dir.z);
+      const steps = Math.floor(len / 0.42);
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const p = a.clone().lerp(b, t);
+        // Pads cover the ends.
+        if (t * len < 1.2 || (1 - t) * len < 1.2) continue;
+        const m = toonMesh(plank, shades[(i * 7 + k) % 3], { outline: 0.01 });
+        m.position.set(p.x, -0.1 + ((i * 13) % 5) * 0.01, p.z);
+        m.rotation.set(((i * 5) % 3) * 0.02 - 0.02, yaw, 0);
+        stat.add(m);
+      }
+      // Posts and rope rails on both sides, and a green lantern midway.
+      const posts = Math.max(2, Math.round(len / 1.6));
+      for (const sd of [-1, 1]) {
+        let last: THREE.Vector3 | null = null;
+        for (let i = 1; i < posts; i++) {
+          const p = a.clone().lerp(b, i / posts).addScaledVector(side, sd * 0.85);
+          const pm = toonMesh(post, 0x6f6480, { outline: 0.012 });
+          pm.position.set(p.x, -0.2, p.z);
+          stat.add(pm);
+          const topP = new THREE.Vector3(p.x, 0.55, p.z);
+          if (last) {
+            const r = toonMesh(new THREE.CylinderGeometry(0.025, 0.025, last.distanceTo(topP), 4), 0x6b4f6e, { outline: false });
+            r.position.copy(last).add(topP).multiplyScalar(0.5).setY(0.5);
+            r.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), topP.clone().sub(last).normalize());
+            stat.add(r);
+          }
+          last = topP;
+        }
+      }
+      const mid = a.clone().lerp(b, 0.5).addScaledVector(side, (k % 2 ? 1 : -1) * 0.85);
+      const lantern = toonMesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), 0xb8ffd8, { outline: 0.012, emissive: 0x2a6a48 });
+      lantern.position.set(mid.x, 0.75, mid.z);
+      stat.add(lantern);
+      const glow = glowSprite(0x9ff7c8, 1.5, 0.7);
+      glow.position.copy(lantern.position);
+      scene.add(glow);
+      anim.wisps.push({ obj: glow, phase: k * 1.7, base: glow.position.clone() });
+      k++;
+    }
+  }
+}
+
+/** Places a static prop on the ground at (x, z). */
+function put<T extends THREE.Object3D>(stat: THREE.Group, terrain: Terrain, obj: T, x: number, z: number, ry = 0, s = 1): T {
+  obj.position.set(x, terrain.heightAt(x, z), z);
+  obj.rotation.y = ry;
+  obj.scale.setScalar(s);
+  stat.add(obj);
+  return obj;
+}
+
+function addTorch(scene: THREE.Scene, terrain: Terrain, x: number, z: number, phase: number): void {
+  const t = torch();
+  t.group.position.set(x, terrain.heightAt(x, z), z);
+  scene.add(t.group);
+  anim.torches.push({ obj: t.group, flame: t.flame, glow: t.glow, phase });
+}
+
+function addNpc(scene: THREE.Scene, terrain: Terrain, npc: Npc, x: number, z: number, ry: number, mode: 'wave' | 'work' | 'look', y?: number): void {
+  const gy = y ?? terrain.heightAt(x, z);
+  npc.group.position.set(x, gy, z);
+  npc.group.rotation.y = ry;
+  scene.add(npc.group);
+  anim.npcs.push({ ...npc, y: gy, mode });
+}
+
+function portTown(scene: THREE.Scene, stat: THREE.Group, terrain: Terrain): void {
+  const T = TOWN;
+  const tav = house({ w: 4.4, d: 3, h: 2.6, wall: 0xfff0d8, roof: Palette.coral, chimney: true, windows: 2 });
+  put(stat, terrain, tav.group, T.x - 0.5, T.z - 5, 0);
+  const sign = hangingSign('THE SALTY GULL', 2.2);
+  sign.position.set(T.x - 0.5 + 2.2, terrain.heightAt(T.x, T.z - 5) + 2.2, T.z - 5 + 1.5);
+  sign.rotation.y = -Math.PI / 2;
+  stat.add(sign);
+  if (tav.chimneyTop) {
+    const sm = new Smoke(5, 0.32, 2.4, 0.25, 0xf4f0fa, new THREE.Vector3(0.5, 0, 0.2));
+    sm.group.position.copy(tav.chimneyTop).add(tav.group.position);
+    scene.add(sm.group);
+    anim.smokes.push({ smoke: sm, offset: 0 });
+  }
+  const homes: [number, number, number, number, number, number, number, number, boolean][] = [
+    // x, z, ry, w, d, h, wall, roof, chimney
+    [T.x - 6, T.z - 1, Math.PI / 2, 2.6, 2.4, 2.1, 0xbfe6ff, Palette.violet, true],
+    [T.x - 6.2, T.z + 4.2, Math.PI / 2, 2.4, 2.6, 1.9, Palette.mint, 0x5fb8c8, false],
+    [T.x + 4.6, T.z - 5.2, -0.2, 2.4, 2.2, 1.9, Palette.peach, 0x6fa0e0, false],
+    [T.x - 4.8, T.z - 6.2, 0.3, 2.2, 2, 1.8, Palette.butter, Palette.coral, true],
+  ];
+  homes.forEach(([x, z, ry, w, d, h, wall, roof, ch], i) => {
+    const hs = house({ w, d, h, wall, roof, chimney: ch, windows: i % 2 ? 1 : 2 });
+    put(stat, terrain, hs.group, x, z, ry);
+    if (hs.chimneyTop) {
+      const sm = new Smoke(4, 0.24, 1.8, 0.3, 0xf4f0fa, new THREE.Vector3(0.5, 0, 0.2));
+      sm.group.position.copy(hs.chimneyTop).applyAxisAngle(new THREE.Vector3(0, 1, 0), ry).add(hs.group.position);
+      scene.add(sm.group);
+      anim.smokes.push({ smoke: sm, offset: i * 0.37 });
+    }
+  });
+  // Stilt house out over the water by the pier.
+  const stilt = house({ w: 2.4, d: 2.2, h: 1.8, wall: 0xffd6e4, roof: 0x5fb8c8, stilts: 0.4, windows: 1 });
+  stilt.group.position.set(T.x - 6.5, 0, T.z + 12.5);
+  stilt.group.rotation.y = 0.5;
+  stat.add(stilt.group);
+
+  // Market: stalls, the well, lamps and bunting.
+  put(stat, terrain, stall(Palette.coral, [Palette.coral, Palette.yellow, Palette.green, 0xffa65c, Palette.coral, Palette.yellow, Palette.green]), T.x + 2.2, T.z + 0.8, -0.3);
+  put(stat, terrain, stall(0x5fb8c8, [0x9fb4e0, 0x9fb4e0, Palette.rose, 0x9fb4e0, Palette.rose]), T.x - 2.2, T.z + 1.6, 0.25);
+  put(stat, terrain, stall(Palette.violet, [Palette.yellow, Palette.butter, Palette.yellow, 0xffa65c]), T.x + 1, T.z + 4.6, 0.1);
+  put(stat, terrain, (() => {
+    const g = new THREE.Group();
+    g.add(chest(true));
+    return g;
+  })(), T.x + 3.2, T.z - 2.2, 0.4);
+  put(stat, terrain, cannon(), T.x + 4.6, T.z + 2.2, -1.2);
+  put(stat, terrain, cannonballs(), T.x + 4.4, T.z + 3.4);
+  const w = (() => {
+    const g = new THREE.Group();
+    g.add(...[0, 1, 2].map((i) => {
+      const b = barrel();
+      b.position.set(i * 0.7, 0, (i % 2) * 0.3);
+      return b;
+    }));
+    return g;
+  })();
+  put(stat, terrain, w, T.x - 3.6, T.z - 3, 0.2);
+  for (const [x, z] of [[T.x + 3.4, T.z - 3.2], [T.x - 3.4, T.z - 2.8], [T.x + 0.5, T.z + 7]] as const) {
+    const c = crate(0.6);
+    put(stat, terrain, c, x, z, x);
+  }
+  const lamps: [number, number][] = [[T.x + 3.8, T.z + 0.5], [T.x - 3.2, T.z + 4.5], [T.x + 1.8, T.z - 3.4], [T.x - 2.8, T.z - 2]];
+  for (const [x, z] of lamps) put(stat, terrain, lampPost().group, x, z, x);
+  const gy = terrain.heightAt(T.x, T.z - 5);
+  stat.add(bunting(new THREE.Vector3(T.x - 2.5, gy + 2.7, T.z - 3.4), new THREE.Vector3(T.x + 4.6, gy + 2.5, T.z - 4), [Palette.coral, Palette.yellow, 0x6fb7ff, Palette.green]));
+  stat.add(bunting(new THREE.Vector3(T.x - 5, gy + 2.4, T.z - 1), new THREE.Vector3(T.x - 2.5, gy + 2.7, T.z - 3.4), [Palette.violet, Palette.coral, Palette.butter]));
+  // Pier with a moored sloop and a rowboat.
+  const p = pier(9, 1.6);
+  p.position.set(T.x - 2.6, 0.02, T.z + 9.4);
+  stat.add(p);
+  const sl = sloop(Palette.cream, 0x6fb7ff);
+  sl.group.position.set(T.x + 0.4, -0.55, T.z + 15);
+  sl.group.rotation.y = Math.PI / 2 + 0.1;
+  scene.add(sl.group);
+  anim.flags.push(sl.flag);
+  anim.bobbers.push({ obj: sl.group, phase: 2.2, y: -0.55 });
+  const rb = rowboat();
+  rb.position.set(T.x - 4.4, -0.25, T.z + 17);
+  rb.rotation.y = -0.3;
+  scene.add(rb);
+  anim.bobbers.push({ obj: rb, phase: 1.1, y: -0.25 });
+  put(stat, terrain, netRack(), T.x - 7.5, T.z + 8, 0.3);
+  put(stat, terrain, ropeCoil(), T.x - 1.5, T.z + 9);
+  // Townsfolk.
+  addNpc(scene, terrain, pirateNpc({ shirt: 0x6fb7ff, skin: 0xc58c64, hat: 'bandana' }), T.x + 2.4, T.z + 1.8, -0.3, 'work');
+  addNpc(scene, terrain, pirateNpc({ shirt: Palette.butter, skin: 0xffd8b8, hat: 'tricorn', beard: true, phase: 1 }), T.x - 0.2, T.z - 1.6, 0.2, 'wave');
+  addNpc(scene, terrain, pirateNpc({ shirt: Palette.rose, skin: 0x8a5a3b, hat: 'none', pants: 0x6b4f9e, phase: 2 }), T.x - 2.6, T.z + 2.6, 0.6, 'look');
+  addNpc(scene, terrain, pirateNpc({ shirt: Palette.mint, skin: 0xe8b48a, hat: 'bandana', phase: 3 }), T.x - 2.6, T.z + 13, Math.PI, 'work', 0.08);
+}
+
+function fortHill(scene: THREE.Scene, stat: THREE.Group, terrain: Terrain): void {
+  const f = fort();
+  const y = terrain.heightAt(FORT.x, FORT.z) - 0.05;
+  f.group.position.set(FORT.x, y, FORT.z);
+  f.group.updateMatrixWorld(true);
+  // The fort bakes with the rest; remember where its guns point for the smoke.
+  anim.fortGuns = f.cannons.map((c) => {
+    const at = c.getWorldPosition(new THREE.Vector3());
+    const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
+    return { at: at.addScaledVector(dir, 0.9).setY(at.y + 0.45), yaw: Math.atan2(dir.x, dir.z) - Math.PI / 2 };
+  });
+  stat.add(f.group);
+  anim.flags.push(f.flag);
+  anim.gunSmoke = new Smoke(5, 0.4, 1.8, 0.9, 0xffffff, new THREE.Vector3(1.2, 0.3, 0));
+  scene.add(anim.gunSmoke.group);
+  addNpc(scene, terrain, pirateNpc({ shirt: 0x6fb7ff, skin: 0xffd8b8, hat: 'tricorn', phase: 0.5 }), FORT.x - 1.6, FORT.z + 2.2, 0.4, 'look', y);
+  addNpc(scene, terrain, pirateNpc({ shirt: Palette.coral, skin: 0xc58c64, hat: 'bandana', phase: 2.5 }), FORT.x + 0.5, FORT.z + 1.8, -0.6, 'work', y);
+  // Torches either side of the gate and a sign down by the path.
+  addTorch(scene, terrain, FORT.x - 4.4, FORT.z - 1.2, 0.3);
+  addTorch(scene, terrain, FORT.x - 4.4, FORT.z + 1.2, 1.1);
+  put(stat, terrain, cannonballs(), 27.6, -1.8);
+  put(stat, terrain, barrel(), 27.8, 2.6);
+  put(stat, terrain, crate(0.6), 28.5, 3.1, 0.4);
+}
+
+function skullIsland(scene: THREE.Scene, stat: THREE.Group, terrain: Terrain, spaces: Space[], rand: () => number): void {
+  const skull = skullRock();
+  skull.position.set(-5, -0.8, -24.5);
+  skull.rotation.y = 0.12;
+  skull.scale.setScalar(0.8);
+  stat.add(skull);
+  put(stat, terrain, tiki(), -15, -25.5, 0.25);
+  put(stat, terrain, tiki(0xc4b0a0), 4.5, -25.5, -0.2, 0.9);
+  put(stat, terrain, tiki(), -18.5, -27, 0.3, 0.75);
+  addTorch(scene, terrain, -13.2, -24.6, 0.7);
+  addTorch(scene, terrain, -16.8, -24.8, 1.5);
+  addTorch(scene, terrain, 2.8, -24.2, 2.1);
+  addTorch(scene, terrain, 6.3, -24.4, 2.9);
+
+  // Jungle: broadleaf trees inland, palms along the beach.
+  const trees: [number, number][] = [];
+  for (let tries = 0; trees.length < 90 && tries < 4000; tries++) {
+    const x = -36 + rand() * 70;
+    const z = -48 + rand() * 24;
+    const h = terrain.heightAt(x, z);
+    if (h < 0.1 || h > 3.4 || terrain.inlandAt(x, z) < 2.2) continue;
+    if (Math.hypot(x + 5, z + 24.5) < 4.5 || Math.abs(x - WATERFALL_X) < 3.5) continue;
+    if (trees.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < 1.9)) continue;
+    trees.push([x, z]);
+    put(stat, terrain, jungleTree(0.9 + rand() * 0.6, Math.floor(rand() * 4)), x, z, rand() * 6);
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = -30 + i * 6.5 + rand() * 2;
+    const z = -23.5 - rand() * 1.5;
+    if (terrain.inlandAt(x, z) < 0.8 || Math.hypot(x + 5, z + 24.5) < 4.5 || Math.abs(x - WATERFALL_X) < 3) continue;
+    if (!clearOfPath(spaces, x, z, 4)) continue;
+    const palm = palmTree(2.6 + rand());
+    palm.position.set(x, terrain.heightAt(x, z), z);
+    palm.rotation.y = rand() * 6;
+    scene.add(palm);
+    anim.palms.push({ obj: palm, phase: i * 1.3 });
+  }
+
+  // The volcano smokes, with clouds snagged round its peak.
+  const sm = new Smoke(7, 1.4, 7, 0.08, 0xeee6f4, new THREE.Vector3(0.6, 0, 0.15));
+  sm.group.position.set(-9, terrain.heightAt(-9, -39) + 0.5, -39);
+  scene.add(sm.group);
+  anim.smokes.push({ smoke: sm, offset: 0 });
+  const glow = glowSprite(0xff9a76, 7, 0.55);
+  glow.position.set(-9, terrain.heightAt(-9, -39) + 1, -39);
+  scene.add(glow);
+  for (const [x, y, z, s] of [[-15, 9, -42, 1.6], [-2, 10.5, -44, 2]] as const) {
+    const c = makeCloud(s);
+    c.position.set(x, y, z);
+    scene.add(c);
+  }
+
+  // Waterfall pouring off the bluff into the sea.
+  let topZ = -27;
+  let botZ = -20;
+  for (let z = -29; z < -18; z += 0.1) {
+    const h = terrain.heightAt(WATERFALL_X, z);
+    if (h > 3.3) topZ = z;
+    if (h > SEA_LEVEL) botZ = z;
+  }
+  const falls = waterfall(new THREE.Vector3(WATERFALL_X, terrain.heightAt(WATERFALL_X, topZ) + 0.25, topZ), new THREE.Vector3(WATERFALL_X, SEA_LEVEL + 0.02, botZ + 0.6), 1.8);
+  scene.add(falls);
+  const pool = toonMesh(new THREE.CircleGeometry(1.5, 18), 0x9fdcf5, { outline: false });
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(WATERFALL_X, terrain.heightAt(WATERFALL_X, topZ - 1.6) + 0.06, topZ - 1.6);
+  stat.add(pool);
+  const splash = new Smoke(5, 0.5, 1.2, 0.7, 0xffffff, new THREE.Vector3(0, 0, 0.5));
+  splash.group.position.set(WATERFALL_X, SEA_LEVEL, botZ + 1);
+  scene.add(splash.group);
+  anim.smokes.push({ smoke: splash, offset: 0 });
+  for (const sx of [-1.6, 1.6]) {
+    const r = toonMesh(new THREE.DodecahedronGeometry(0.9, 0), 0xc4bcd2, { outline: 0.03 });
+    r.position.set(WATERFALL_X + sx, SEA_LEVEL + 0.1, botZ + 0.6);
+    r.scale.set(1, 0.7, 1);
+    stat.add(r);
+  }
+
+  // Lighthouse on its headland with the keeper's hut.
+  const lh = lighthouse();
+  lh.group.position.set(28.4, terrain.heightAt(28.4, -18.6), -18.6);
+  scene.add(lh.group);
+  anim.beam = lh.beam;
+  const hut = house({ w: 2, d: 1.8, h: 1.5, wall: Palette.cream, roof: Palette.coral, windows: 1 });
+  put(stat, terrain, hut.group, 25.6, -16.8, -0.5);
+  put(stat, terrain, anchor(), 30.4, -16, 0.6);
+}
+
+function treasureIsle(scene: THREE.Scene, stat: THREE.Group, terrain: Terrain): void {
+  const T = TREASURE;
+  put(stat, terrain, chest(true), T.x - 0.2, T.z + 0.2, 0.5, 1.2);
+  // Gold spilled about, glinting.
+  const coins: { x: number; y: number; z: number; s: number; ry: number }[] = [];
+  const r = seeded(0x901d);
+  for (let i = 0; i < 26; i++) {
+    const a = r() * Math.PI * 2;
+    const d = 0.5 + r() * 1.1;
+    const x = T.x + Math.cos(a) * d;
+    const z = T.z + 0.4 + Math.sin(a) * d * 0.7;
+    coins.push({ x, y: terrain.heightAt(x, z) + 0.03, z, s: 0.8 + r() * 0.4, ry: r() * 6 });
+  }
+  scene.add(instanced(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 10), Palette.yellow, coins));
+  for (let i = 0; i < 4; i++) {
+    const s = glowSprite(0xfff2a8, 0.7, 0.9);
+    s.position.set(T.x - 0.6 + i * 0.4, terrain.heightAt(T.x, T.z) + 0.75 + (i % 2) * 0.2, T.z + 0.3 + (i % 2) * 0.2);
+    scene.add(s);
+    anim.sparkles.push({ obj: s, phase: i * 1.7 });
+  }
+  const xMat = toon(Palette.coral);
+  for (const a of [0.78, -0.78]) {
+    const bar = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.24), xMat);
+    bar.rotation.set(-Math.PI / 2, 0, a);
+    bar.position.set(T.x + 0.3, terrain.heightAt(T.x + 0.3, T.z - 2.2) + 0.04, T.z - 2.2);
+    stat.add(bar);
+  }
+  const mound = toonMesh(new THREE.SphereGeometry(0.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xe8cf98, { outline: 0.015 });
+  mound.scale.y = 0.6;
+  put(stat, terrain, mound, T.x - 0.6, T.z - 2.8);
+  const shovel = new THREE.Group();
+  const handle = toonMesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 6), Wood.hull, { outline: 0.01 });
+  handle.position.y = 0.65;
+  const blade = toonMesh(new THREE.BoxGeometry(0.3, 0.36, 0.04), 0xc8c4d8, { outline: 0.01 });
+  shovel.add(handle, blade);
+  put(stat, terrain, shovel, T.x - 0.4, T.z - 2.6, 0.4).rotation.set(0.3, 0.4, 0.2);
+  // A grinning skull keeps an eye on the loot.
+  const skull = new THREE.Group();
+  const head = toonMesh(new THREE.SphereGeometry(0.22, 12, 8), Palette.cream, { outline: 0.015 });
+  head.position.y = 0.2;
+  skull.add(head);
+  for (const s of [-1, 1]) {
+    const eye = toonMesh(new THREE.SphereGeometry(0.06, 6, 4), Palette.ink, { outline: false });
+    eye.position.set(s * 0.08, 0.24, 0.18);
+    skull.add(eye);
+  }
+  put(stat, terrain, skull, T.x + 0.9, T.z + 1.2, 0.6);
+  for (const [x, z, h] of [[T.x - 1.4, T.z - 3.8, 2.6], [T.x - 2.3, T.z - 0.6, 3], [T.x - 1.8, T.z + 3.6, 2.4]] as const) {
+    const palm = palmTree(h);
+    palm.position.set(x, terrain.heightAt(x, z), z);
+    palm.rotation.y = x * 2;
+    scene.add(palm);
+    anim.palms.push({ obj: palm, phase: x + z });
+  }
+  addTorch(scene, terrain, T.x + 0.9, T.z - 1.2, 0.2);
+  addNpc(scene, terrain, pirateNpc({ shirt: Palette.violet, skin: 0xe8b48a, hat: 'bandana', phase: 1.5 }), T.x - 1.1, T.z - 1.9, 0.9, 'work');
+}
 
 function buildScenery(scene: THREE.Scene, spaces: Space[]): void {
-  palms.length = bobbers.length = crabs.length = gulls.length = clouds.length = wisps.length = 0;
+  Object.assign(anim, emptyAnim());
   const rand = seeded(0x5ea);
-  scene.add(water());
-  scene.add(islands(spaces));
-  waterRef = surf(spaces);
-  scene.add(waterRef);
+  const terrain = buildTerrain({ spaces, overWater: boardwalkIds, isles: ISLES, patches: PATCHES });
+  scene.add(waterPlane(terrain));
+  scene.add(terrain.mesh);
+  // Static props collect here and get baked into a handful of meshes at the end.
+  const stat = new THREE.Group();
 
-  const addPalm = (p: THREE.Group, phase: number) => {
-    scene.add(p);
-    palms.push({ obj: p, phase });
-  };
+  boardwalk(spaces, stat, scene);
+  portTown(scene, stat, terrain);
+  fortHill(scene, stat, terrain);
+  skullIsland(scene, stat, terrain, spaces, rand);
+  treasureIsle(scene, stat, terrain);
 
   // Palms on the outside of the main ring, away from the lagoon.
   spaces.forEach((s, i) => {
@@ -533,268 +603,365 @@ function buildScenery(scene: THREE.Scene, spaces: Space[]): void {
     const out = s.pos.clone().setY(0).normalize();
     // Skip the camera-facing side so trees never hide the path.
     if (out.z > 0.2) return;
+    const x = s.pos.x + out.x * 2.3;
+    const z = s.pos.z + out.z * 2.3;
+    if (Math.hypot(x - TOWN.x, z - TOWN.z) < 8 || Math.hypot(x - FORT.x, z - FORT.z) < 7) return;
     const palm = palmTree(2.4 + (i % 4) * 0.35);
-    palm.position.copy(s.pos).addScaledVector(out, 2.3).setY(0);
+    palm.position.set(x, Math.max(-0.2, terrain.heightAt(x, z)), z);
     palm.rotation.y = Math.atan2(out.x, out.z) + Math.PI / 2;
-    addPalm(palm, i);
+    scene.add(palm);
+    anim.palms.push({ obj: palm, phase: i });
   });
 
-  // Beach dressing: starfish, shells and pebbles round the island rims.
+  // Beach dressing: starfish and shells round the sandy rims.
   const stars: { x: number; y: number; z: number; s: number; ry: number }[] = [];
   const shells: typeof stars = [];
-  spaces.forEach((s, i) => {
-    const out = s.pos.clone().setY(0).normalize();
-    for (let k = 0; k < 2; k++) {
-      const a = Math.atan2(out.z, out.x) + (rand() - 0.5) * 2.2 + (k ? Math.PI : 0);
-      const r = 1.75 + rand() * 0.35;
-      const x = s.pos.x + Math.cos(a) * r;
-      const z = s.pos.z + Math.sin(a) * r;
-      // Stay off the neighbouring spaces' grass.
-      if (!clearOfPath(spaces, x, z, 1.62)) continue;
-      const it = { x, y: -0.02 + (s.id % 7) * 0.004, z, s: 0.7 + rand() * 0.6, ry: rand() * 6 };
-      ((i + k) % 3 === 0 ? stars : shells).push(it);
-    }
-  });
+  for (let i = 0; i < 260; i++) {
+    const x = -46 + rand() * 92;
+    const z = -30 + rand() * 54;
+    const inland = terrain.inlandAt(x, z);
+    if (inland < 0.4 || inland > 1.1 || !clearOfPath(spaces, x, z, 1.3)) continue;
+    const it = { x, y: terrain.heightAt(x, z) - 0.01, z, s: 0.7 + rand() * 0.6, ry: rand() * 6 };
+    (i % 3 === 0 ? stars : shells).push(it);
+  }
   scene.add(instanced(starfishGeo(), Palette.coral, stars));
-  const shellGeo = new THREE.SphereGeometry(0.14, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-  scene.add(instanced(shellGeo, Palette.rose, shells));
+  scene.add(instanced(new THREE.SphereGeometry(0.14, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), Palette.rose, shells));
 
-  const pirateShip = ship();
-  pirateShip.position.set(0, -0.5, -1);
-  pirateShip.rotation.y = 0.25;
-  scene.add(pirateShip);
-  shipRef = pirateShip;
+  // Grass tufts, flowers and bushes on the green bits.
+  const tufts: { x: number; y: number; z: number; s: number; ry: number; sy?: number }[] = [];
+  const flowers: typeof tufts = [];
+  const flowers2: typeof tufts = [];
+  const bushes: typeof tufts = [];
+  for (let i = 0; i < 2600; i++) {
+    const x = -48 + rand() * 96;
+    const z = -48 + rand() * 72;
+    const h = terrain.heightAt(x, z);
+    if (h < -0.05 || h > 3 || terrain.inlandAt(x, z) < 1.6) continue;
+    if (!clearOfPath(spaces, x, z, 1.25)) continue;
+    if (Math.hypot(x - TOWN.x, z - TOWN.z) < 4.6 || Math.hypot(x - FORT.x, z - FORT.z) < 4.8) continue;
+    const n = fbm(x * 1.7, z * 1.7);
+    const it = { x, y: h, z, s: 0.6 + rand() * 0.6, ry: rand() * 6 };
+    if (n > 0.2 && bushes.length < 120 && clearOfPath(spaces, x, z, 1.8)) bushes.push({ ...it, sy: 0.7 });
+    else if (n < -0.15) (i % 2 ? flowers : flowers2).push(it);
+    else if (tufts.length < 700) tufts.push(it);
+  }
+  scene.add(instanced(new THREE.ConeGeometry(0.1, 0.36, 4).translate(0, 0.16, 0), Palette.grassDark, tufts));
+  scene.add(instanced(new THREE.SphereGeometry(0.09, 6, 4).translate(0, 0.08, 0), Palette.rose, flowers));
+  scene.add(instanced(new THREE.SphereGeometry(0.09, 6, 4).translate(0, 0.08, 0), Palette.butter, flowers2));
+  scene.add(instanced(new THREE.IcosahedronGeometry(0.55, 1).translate(0, 0.25, 0), 0x86d8a0, bushes));
 
-  // Landmarks: the lighthouse, Skull Rock and the old jetty.
-  const light = lighthouse();
-  light.position.set(27, 0, -17);
-  scene.add(light);
-  const skull = skullRock();
-  skull.position.set(-5, -0.6, -24);
-  skull.rotation.y = 0.15;
-  skull.scale.setScalar(0.8);
-  scene.add(skull);
-  const jetty = dock(7);
+  // The flagship at anchor in the lagoon.
+  const fs = ship();
+  fs.group.position.set(0, -0.5, -1);
+  fs.group.rotation.y = 0.25;
+  scene.add(fs.group);
+  anim.ship = fs;
+  anim.flags.push(...fs.flags);
+  for (const c of fs.crew) anim.npcs.push({ ...c, y: c.group.position.y, mode: c === fs.crew[0] ? 'work' : 'look' });
+
+  // Haunted wreck beside the ghost-ship shortcut, with ghostly wisps.
+  const wreck = ghostWreck();
+  wreck.position.set(16.2, -1.2, -3);
+  wreck.rotation.set(0, Math.PI / 2 + 0.35, 0.3);
+  stat.add(wreck);
+  for (let i = 0; i < 4; i++) {
+    const w = glowSprite(0x9ff7c8, 1.1, 0.9);
+    const base = new THREE.Vector3(15 + (i % 2) * 2, 1.8 + i * 0.5, -5.5 + i * 1.6);
+    w.position.copy(base);
+    scene.add(w);
+    anim.wisps.push({ obj: w, phase: i * 2.2, base });
+  }
+
+  // The old jetty by the start, with the cove's name.
+  const jetty = pier(7);
   jetty.position.set(-3.4, 0.02, 17.2);
-  scene.add(jetty);
+  stat.add(jetty);
   const boat = rowboat();
   boat.position.set(-5.6, -0.25, 21.5);
   boat.rotation.y = 0.3;
   scene.add(boat);
-  bobbers.push({ obj: boat, phase: 0.5, y: -0.25 });
+  anim.bobbers.push({ obj: boat, phase: 0.5, y: -0.25 });
   const sign = new THREE.Group();
-  const signPost = toonMesh(new THREE.CylinderGeometry(0.08, 0.08, 1.6, 6), 0x9a6a4a, { outline: 0.015 });
+  const signPost = toonMesh(new THREE.CylinderGeometry(0.08, 0.08, 1.6, 6), Wood.hull, { outline: 0.015 });
   signPost.position.y = 0.8;
   const board = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.08), [
-    ...Array(4).fill(toon(0xc99a6b)),
+    ...Array(4).fill(toon(Wood.mid)),
     new THREE.MeshBasicMaterial({ map: textTexture('PIRATE COVE', '#c99a6b', '#fff6e6', 256, 64, '900 34px system-ui, sans-serif') }),
-    toon(0xc99a6b),
+    toon(Wood.mid),
   ]);
   board.position.y = 1.5;
   board.rotation.z = -0.05;
   sign.add(signPost, board);
   sign.position.set(-3.6, 0, 20.4);
-  scene.add(sign);
+  stat.add(sign);
+  const post = signpost([['TOWN', Math.PI], ['FORT', 0], ['SKULL ISLE', Math.PI / 2]]);
+  put(stat, terrain, post, 2.6, 17.4, 0.2);
 
-  // Little decorative islands out at sea, each with a crab.
-  const extras: [number, number, number][] = [
-    [32, 10, 2.6],
-    [-33, 14, 3],
-    [-30, -18, 2.8],
-    [6, 26, 2],
+  // Torches and odds and ends along the path.
+  const torchSpots = [2, 9, 13, 20, 24, 29, 33, 37];
+  torchSpots.forEach((idx, i) => {
+    const s = spaces[idx];
+    const out = s.pos.clone().setY(0).normalize();
+    const side = i % 2 ? 1 : -1;
+    const tangent = new THREE.Vector3(-out.z, 0, out.x).multiplyScalar(side * 1.2);
+    const x = s.pos.x + out.x * 1.75 + tangent.x;
+    const z = s.pos.z + out.z * 1.75 + tangent.z;
+    if (!clearOfPath(spaces, x, z, 1.3) || terrain.heightAt(x, z) < SEA_LEVEL) return;
+    addTorch(scene, terrain, x, z, i * 0.9);
+  });
+  const odds: [THREE.Object3D, number, number][] = [
+    [barrel(), 5.5, 18.6],
+    [barrel(), 6.4, 19],
+    [crate(), 7.2, 18.4],
+    [anchor(), -24.6, 10.5],
+    [ropeCoil(), -26.4, -2.6],
+    [netRack(), 26.4, 7.6],
+    [crate(), 20.4, -13.2],
+    [barrel(), 21.2, -12.6],
+    [chest(), -26, 1.2],
+    [cannon(), 13.6, 17.6],
+    [cannonballs(), 14.6, 18.2],
   ];
-  extras.forEach(([x, z, r], i) => {
-    const isle = toonMesh(new THREE.CylinderGeometry(r, r * 1.25, 1, 24), Palette.sand, { outline: 0.04 });
-    isle.position.set(x, -0.4, z);
-    scene.add(isle);
-    const palm = palmTree(2.2 + r * 0.3);
-    palm.position.set(x, 0.1, z);
-    palm.rotation.y = x;
-    addPalm(palm, i * 2.1);
-    const c = crab(i % 2 ? Palette.coral : 0xff9a6a);
-    c.position.set(x + r * 0.5, 0.1, z + r * 0.35);
-    scene.add(c);
-    crabs.push({ obj: c, phase: i * 1.3, x: c.position.x, z: c.position.z, dir: i * 0.9 });
+  odds.forEach(([o, x, z]) => {
+    if (clearOfPath(spaces, x, z, 1.3)) put(stat, terrain, o, x, z, x * 0.7);
   });
 
-  // Treasure isle: X marks the spot, with a half-dug hole and a shovel.
-  const xMat = new THREE.MeshBasicMaterial({ color: Palette.coral });
-  for (const a of [0.78, -0.78]) {
-    const bar = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.24), xMat);
-    bar.rotation.set(-Math.PI / 2, 0, a);
-    bar.position.set(-12.6, 0.14, -0.6);
-    scene.add(bar);
+  // Little islets, each with a palm and a crab.
+  for (const [x, z, i] of [[31, 16, 0], [-22, -21, 1]] as const) {
+    const palm = palmTree(2.8);
+    palm.position.set(x, terrain.heightAt(x, z), z);
+    palm.rotation.y = x;
+    scene.add(palm);
+    anim.palms.push({ obj: palm, phase: i * 2.1 });
+    const c = crab(i ? Palette.coral : 0xff9a6a);
+    const cx = x + 1;
+    const cz = z + 0.6;
+    const y = terrain.heightAt(cx, cz) + 0.05;
+    c.position.set(cx, y, cz);
+    scene.add(c);
+    anim.crabs.push({ obj: c, phase: i * 1.3, x: cx, z: cz, y, dir: i * 0.9 });
   }
-  const mound = toonMesh(new THREE.SphereGeometry(0.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xe8cf98, { outline: 0.015 });
-  mound.position.set(-13.4, 0.1, 0.4);
-  mound.scale.y = 0.6;
-  const shovel = new THREE.Group();
-  const handle = toonMesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 6), 0x9a6a4a, { outline: 0.01 });
-  handle.position.y = 0.65;
-  const blade = toonMesh(new THREE.BoxGeometry(0.3, 0.36, 0.04), 0xc8c4d8, { outline: 0.01 });
-  shovel.add(handle, blade);
-  shovel.position.set(-13.3, 0.2, 0.3);
-  shovel.rotation.set(0.3, 0.4, 0.2);
-  scene.add(mound, shovel);
-
-  // Haunted wreck beside the ghost-ship shortcut, with ghostly wisps.
-  const wreckMast = toonMesh(new THREE.CylinderGeometry(0.12, 0.16, 3.4, 8), 0x7a6a7a, { outline: 0.025 });
-  wreckMast.position.set(16.6, 0.8, -3.5);
-  wreckMast.rotation.z = 0.35;
-  const tatter = toonMesh(new THREE.PlaneGeometry(1.2, 0.9, 1, 1), 0xb8c8c0, { outline: false });
-  (tatter.material as THREE.Material).side = THREE.DoubleSide;
-  tatter.position.set(16.2, 1.6, -3.4);
-  tatter.rotation.set(0.1, 0.4, 0.35);
-  const wreckHull = toonMesh(new THREE.BoxGeometry(2.6, 0.5, 1.2), 0x7a6a7a, { outline: 0.03 });
-  wreckHull.position.set(17, -0.35, -3.2);
-  wreckHull.rotation.set(0.2, 0.6, 0.25);
-  scene.add(wreckMast, tatter, wreckHull);
-  for (let i = 0; i < 3; i++) {
-    const w = glowSprite(0x9ff7c8, 1.1, 0.9);
-    const base = new THREE.Vector3(15.5 + i * 1.2, 1.8 + i * 0.4, -4.8 + i * 1.6);
-    w.position.copy(base);
-    scene.add(w);
-    wisps.push({ obj: w, phase: i * 2.2, base });
+  // Crabs on the main beaches too.
+  for (const [x, z, i] of [[-6, 17.4, 2], [21.8, 13.6, 3], [-26.2, 6, 4]] as const) {
+    const c = crab(i % 2 ? Palette.coral : 0xff9a6a);
+    const y = terrain.heightAt(x, z) + 0.05;
+    c.position.set(x, y, z);
+    scene.add(c);
+    anim.crabs.push({ obj: c, phase: i * 1.3, x, z, y, dir: i * 0.9 });
   }
 
-  // Buoys and sea rocks with foam collars.
-  const buoys: [number, number][] = [
-    [27, 2],
-    [-28, -6],
-    [12, -22],
-    [-18, 20],
-    [20, 20],
+  // Buoys, floating cargo and sea rocks with foam collars.
+  const floaters: [THREE.Object3D, number, number, number][] = [
+    [buoy(), 27, 4, -0.45],
+    [buoy(), 12, -21, -0.45],
+    [buoy(), -18, 20, -0.45],
+    [buoy(), 20, 20, -0.45],
+    [barrel(), -4, -8, -0.75],
+    [crate(0.7), 5, 9.6, -0.65],
+    [barrel(), -19, -16, -0.75],
   ];
-  buoys.forEach(([x, z], i) => {
-    const b = buoy();
-    b.position.set(x, -0.45, z);
-    scene.add(b);
-    bobbers.push({ obj: b, phase: i * 1.9, y: -0.45 });
+  floaters.forEach(([o, x, z, y], i) => {
+    o.position.set(x, y, z);
+    scene.add(o);
+    anim.bobbers.push({ obj: o, phase: i * 1.9, y });
   });
   const rocks = scatter(rand, spaces, {
-    count: 14,
-    extent: 38,
+    count: 18,
+    extent: 44,
     clearance: 4,
-    // Keep clear of the ship, the jetty and the other landmarks.
-    reject: (x, z) => (Math.abs(x) < 7 && z > -6 && z < 4) || (Math.abs(x + 4) < 4 && z > 15) || Math.hypot(x - 27, z + 17) < 5 || Math.hypot(x + 5, z + 24) < 6,
+    reject: (x, z) => terrain.heightAt(x, z) > -1.2 || (Math.abs(x) < 7 && z > -6 && z < 4) || Math.hypot(x - KRAKEN.x, z - KRAKEN.z) < 5 || (x > 6 && x < 20 && z > -10 && z < 9),
   });
   const rockItems = rocks.map(([x, z]) => ({ x, y: -0.35, z, s: 0.5 + rand() * 0.9, ry: rand() * 6, sy: 0.7 }));
   scene.add(instanced(new THREE.DodecahedronGeometry(1, 0), 0xc4bcd2, rockItems));
   scene.add(instanced(new THREE.RingGeometry(1.05, 1.45, 14).rotateX(-Math.PI / 2), 0xf2fbff, rockItems.map((r) => ({ ...r, y: -0.42, sy: 1 }))));
 
-  // Shark circling in the lagoon.
-  fin = sharkFin();
-  fin.scale.setScalar(1.5);
-  scene.add(fin);
+  // Sea life: the shark, dolphins, a turtle and the kraken.
+  anim.fin = sharkFin();
+  anim.fin.scale.setScalar(1.5);
+  scene.add(anim.fin);
+  const splashGeo = new THREE.RingGeometry(0.4, 0.75, 16).rotateX(-Math.PI / 2);
+  for (let i = 0; i < 2; i++) {
+    const d = dolphin();
+    scene.add(d);
+    const splash = new THREE.Mesh(splashGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
+    scene.add(splash);
+    anim.dolphins.push({ obj: d, splash, offset: i * 0.45 });
+  }
+  anim.turtle = turtle();
+  scene.add(anim.turtle.group);
+  const kr = new THREE.Group();
+  kr.position.copy(KRAKEN);
+  const head = toonMesh(new THREE.SphereGeometry(2, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), 0xb48ad8, { outline: 0.05 });
+  head.scale.set(1, 1.3, 1);
+  kr.add(head);
+  for (const s of [-1, 1]) {
+    const eye = toonMesh(new THREE.SphereGeometry(0.4, 10, 8), 0xffffff, { outline: 0.02 });
+    eye.position.set(s * 0.8, 1.1, 1.6);
+    const pupil = toonMesh(new THREE.SphereGeometry(0.2, 8, 6), Palette.ink, { outline: false });
+    pupil.position.set(s * 0.8, 1.1, 1.95);
+    kr.add(eye, pupil);
+  }
+  const tentacleSpots: [number, number, number][] = [[-3, 1.2, 0.4], [3, 0.8, -0.4], [-1.6, 2.8, 0.1], [2, 3, -0.1]];
+  tentacleSpots.forEach(([x, z, lean], i) => {
+    const tn = tentacle(9, 0.42 - i * 0.03);
+    tn.root.position.set(x, 0, z);
+    tn.root.rotation.z = lean;
+    kr.add(tn.root);
+    anim.tentacles.push({ ...tn, phase: i * 1.4 });
+  });
+  scene.add(kr);
+  anim.kraken = kr;
 
   // Gulls wheeling overhead.
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const g = bird(0xffffff, 0xeef0ff);
     g.group.scale.setScalar(1.1);
     scene.add(g.group);
     // Wide circles round the outside of the ring, so they never hide the path for long.
-    gulls.push({ ...g, cx: 0, cz: -2, r: 28 + i * 2, y: 6 + i * 0.5, speed: i % 2 ? 0.12 : -0.1, phase: i * 1.6 });
+    anim.gulls.push({ ...g, cx: 0, cz: -2, r: 30 + i * 2, y: 5 + i * 0.4, speed: i % 2 ? 0.12 : -0.1, phase: i * 1.6 });
   }
 
-  // Clouds drifting by out past the islands.
-  const cloudSpots: [number, number, number][] = [
-    [-30, 10, -34],
-    [20, 12, -40],
-    [44, 9, -10],
-    [-46, 11, 0],
-  ];
-  cloudSpots.forEach(([x, y, z], i) => {
-    const c = makeCloud(2 + (i % 2));
-    c.position.set(x, y, z);
-    scene.add(c);
-    clouds.push({ obj: c, phase: x, z, y });
-  });
-
-  const props: [THREE.Group, number, number][] = [
-    [chest(), -12.5, 1.5],
-    [barrel(), 5.5, 18.6],
-    [barrel(), 6.4, 19],
-    [chest(), 17, -14],
-    [barrel(), -24.6, 4],
-    [barrel(), -1.6, 22.5],
-  ];
-  for (const [p, x, z] of props) {
-    p.position.set(x, 0.02, z);
-    p.rotation.y = x * 0.7;
-    scene.add(p);
-  }
+  scene.add(bake(stat));
 }
 
-const tmpM = new THREE.Matrix4();
+// ------------------------------------------------------------------ animation
 
 function updateScenery(t: number): void {
-  if (waterMat) waterMat.uniforms.time.value = t;
-  for (const f of flags) {
-    const pos = (f as THREE.Mesh).geometry.attributes.position as THREE.BufferAttribute;
+  if (anim.water) anim.water.uniforms.time.value = t;
+  if (anim.falls) anim.falls.uniforms.time.value = t;
+  for (const f of anim.flags) {
+    const pos = f.geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
-      pos.setZ(i, Math.sin(t * 6 + x * 4) * 0.08 * (x + 0.55));
+      pos.setZ(i, Math.sin(t * 6 - x * 4) * 0.09 * x);
     }
     pos.needsUpdate = true;
   }
-  if (waterRef) {
-    const centres = waterRef.userData.centres as THREE.Vector3[];
-    centres.forEach((c, i) => {
-      const s = 1 + Math.sin(t * 1.6 + i * 0.7) * 0.05;
-      tmpM.makeScale(s, 1, s).setPosition(c);
-      waterRef!.setMatrixAt(i, tmpM);
-    });
-    waterRef.instanceMatrix.needsUpdate = true;
-  }
-  if (shipRef) {
-    shipRef.position.y = -0.5 + Math.sin(t * 0.9) * 0.12;
-    shipRef.rotation.x = Math.sin(t * 0.9 + 1) * 0.035;
-    shipRef.rotation.z = Math.sin(t * 0.7) * 0.02;
-  }
-  if (shipWheel) shipWheel.rotation.x = Math.sin(t * 0.5) * 0.8;
-  if (cannonSmoke) {
+  const s = anim.ship;
+  if (s) {
+    s.group.position.y = -0.5 + Math.sin(t * 0.9) * 0.12;
+    s.group.rotation.x = Math.sin(t * 0.9 + 1) * 0.035;
+    s.group.rotation.z = Math.sin(t * 0.7) * 0.02;
+    s.wheel.rotation.x = Math.sin(t * 0.5) * 0.8;
     // A volley every nine seconds; the smoke shows for the first two.
     const k = t % 9;
-    cannonSmoke.group.visible = k < 2;
-    cannonSmoke.update(k * 0.5);
+    s.smoke.group.visible = k < 2;
+    s.smoke.update(k * 0.5);
+    s.parrot.rotation.y = 0.6 + Math.sin(t * 0.8) * 0.5;
+    s.parrot.position.y = 1.5 + Math.max(0, Math.sin(t * 3)) * 0.06;
+    for (const l of s.lanterns) l.material.opacity = 0.5 + Math.sin(t * 3 + l.position.z) * 0.1;
   }
-  if (parrotBird) {
-    parrotBird.rotation.y = 0.6 + Math.sin(t * 0.8) * 0.5;
-    parrotBird.position.y = 1.5 + Math.max(0, Math.sin(t * 3)) * 0.06;
+  // The fort answers the ship's volley a few seconds later, from a different gun each time.
+  if (anim.gunSmoke && anim.fortGuns.length) {
+    const k = (t + 4.5) % 9;
+    const gun = anim.fortGuns[Math.floor((t + 4.5) / 9) % anim.fortGuns.length];
+    anim.gunSmoke.group.position.copy(gun.at);
+    anim.gunSmoke.group.rotation.y = gun.yaw;
+    anim.gunSmoke.group.visible = k < 2;
+    anim.gunSmoke.update(k * 0.5);
   }
-  if (beamPivot) beamPivot.rotation.y = t * 0.8;
-  if (fin) {
+  if (anim.beam) anim.beam.rotation.y = t * 0.8;
+  if (anim.fin) {
     const a = -t * 0.45;
-    fin.position.set(-1 + Math.cos(a) * 4, -0.55 + Math.sin(t * 2) * 0.05, 8 + Math.sin(a) * 2.6);
-    fin.rotation.y = -a - Math.PI / 2 + Math.PI;
+    anim.fin.position.set(3 + Math.cos(a) * 3.5, -0.55 + Math.sin(t * 2) * 0.05, 7.2 + Math.sin(a) * 2.2);
+    anim.fin.rotation.y = -a - Math.PI / 2 + Math.PI;
   }
-  for (const p of palms) {
+  for (const p of anim.palms) {
     p.obj.rotation.x = Math.sin(t * 1.1 + p.phase) * 0.025;
     p.obj.rotation.z = Math.sin(t * 0.8 + p.phase * 1.3) * 0.03;
   }
-  for (const b of bobbers) {
+  for (const b of anim.bobbers) {
     b.obj.position.y = b.y + Math.sin(t * 1.4 + b.phase) * 0.12;
     b.obj.rotation.z = Math.sin(t * 1.1 + b.phase) * 0.12;
     b.obj.rotation.x = Math.cos(t * 0.9 + b.phase) * 0.08;
   }
-  for (const c of crabs) {
+  for (const c of anim.crabs) {
     // Scuttle sideways, pause, scuttle back.
-    const s = Math.sin(t * 0.7 + c.phase);
-    const step = Math.max(-1, Math.min(1, s * 2)) * 0.7;
-    c.obj.position.set(c.x + Math.cos(c.dir) * step, 0.1 + Math.abs(Math.sin(t * 12)) * 0.03 * Math.abs(Math.cos(t * 0.7 + c.phase)), c.z + Math.sin(c.dir) * step);
+    const sw = Math.sin(t * 0.7 + c.phase);
+    const step = Math.max(-1, Math.min(1, sw * 2)) * 0.7;
+    c.obj.position.set(c.x + Math.cos(c.dir) * step, c.y + Math.abs(Math.sin(t * 12)) * 0.03 * Math.abs(Math.cos(t * 0.7 + c.phase)), c.z + Math.sin(c.dir) * step);
     c.obj.rotation.y = -c.dir;
   }
-  for (const g of gulls) flyBird(g, t, g.cx, g.cz, g.r, g.y, g.speed, g.phase);
-  for (const c of clouds) c.obj.position.x = ((c.phase + t * 0.6 + 60) % 120) - 60;
-  for (const w of wisps) {
-    w.obj.position.set(w.base.x + Math.sin(t * 0.7 + w.phase) * 0.6, w.base.y + Math.sin(t * 1.3 + w.phase) * 0.35, w.base.z + Math.cos(t * 0.5 + w.phase) * 0.6);
+  for (const g of anim.gulls) flyBird(g, t, g.cx, g.cz, g.r, g.y, g.speed, g.phase);
+  for (const w of anim.wisps) {
+    w.obj.position.set(w.base.x + Math.sin(t * 0.7 + w.phase) * 0.4, w.base.y + Math.sin(t * 1.3 + w.phase) * 0.25, w.base.z + Math.cos(t * 0.5 + w.phase) * 0.4);
     ((w.obj as THREE.Sprite).material as THREE.SpriteMaterial).opacity = 0.55 + Math.sin(t * 2.3 + w.phase) * 0.35;
+  }
+  for (const tr of anim.torches) {
+    const f = 1 + Math.sin(t * 13 + tr.phase) * 0.12 + Math.sin(t * 7.3 + tr.phase * 2) * 0.08;
+    tr.flame.scale.set(1 / f, f, 1 / f);
+    tr.flame.rotation.z = Math.sin(t * 5 + tr.phase) * 0.12;
+    tr.glow.material.opacity = 0.45 + (f - 1) * 1.2;
+  }
+  for (const n of anim.npcs) {
+    const p = t + n.phase;
+    n.group.position.y = n.y + Math.abs(Math.sin(p * 2.2)) * 0.04;
+    if (n.mode === 'wave') n.arm.rotation.z = 2.4 + Math.sin(p * 7) * 0.4;
+    else if (n.mode === 'work') n.arm.rotation.z = 0.6 + Math.sin(p * 4) * 0.6;
+    else {
+      // Shade their eyes and scan the horizon.
+      n.arm.rotation.z = 2.1;
+      n.group.rotation.y += Math.sin(p * 0.6) * 0.004;
+    }
+  }
+  for (const sm of anim.smokes) sm.smoke.update(t + sm.offset * 10);
+  for (const sp of anim.sparkles) {
+    const k = Math.max(0, Math.sin(t * 2.5 + sp.phase));
+    sp.obj.material.opacity = k * k;
+    sp.obj.scale.setScalar(0.3 + k * 0.6);
+  }
+
+  // Kraken: surfaces every 24 seconds, waves its tentacles about, then sinks.
+  if (anim.kraken) {
+    const k = t % 24;
+    const up = k < 3 ? k / 3 : k < 11 ? 1 : k < 14 ? 1 - (k - 11) / 3 : 0;
+    const e = up * up * (3 - 2 * up);
+    anim.kraken.visible = up > 0;
+    anim.kraken.position.y = -4.2 + e * 3.6;
+    for (const tn of anim.tentacles) {
+      tn.joints.forEach((j, i) => {
+        j.rotation.x = Math.sin(t * 1.6 + tn.phase + i * 0.6) * 0.22 + 0.08;
+        j.rotation.z = Math.cos(t * 1.1 + tn.phase + i * 0.4) * 0.1;
+      });
+    }
+  }
+  // Dolphins leap across the lagoon in pairs, from a new spot each time.
+  for (const d of anim.dolphins) {
+    const period = 5;
+    const lt = t / period + d.offset * 0.08;
+    const n = Math.floor(lt);
+    const k = (lt - n) * period;
+    const dur = 1.3;
+    const dir = n % 2 ? -1 : 1;
+    const sx = -7 + (n % 3) * 1.2 + d.offset * 2.2 * dir - (dir < 0 ? -6 : 0);
+    const sz = -7.4 + (n % 2) * 0.8 + d.offset * 1.4;
+    if (k < dur) {
+      const u = k / dur;
+      const y = SEA_LEVEL - 0.4 + 2.3 * 4 * u * (1 - u);
+      d.obj.visible = true;
+      d.obj.position.set(sx + dir * u * 5, y, sz);
+      d.obj.rotation.set(-Math.atan(2.3 * 4 * (1 - 2 * u) / 5), dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 'YXZ');
+    } else d.obj.visible = false;
+    // Splash rings where it leaves and re-enters the water.
+    const sk = k < 0.6 ? k : k > dur - 0.1 && k < dur + 0.6 ? k - (dur - 0.1) : -1;
+    d.splash.visible = sk >= 0;
+    if (sk >= 0) {
+      d.splash.position.set(sx + (k < 0.6 ? 0.3 : 4.7) * dir, SEA_LEVEL + 0.03, sz);
+      d.splash.scale.setScalar(0.6 + sk * 2.5);
+      (d.splash.material as THREE.MeshBasicMaterial).opacity = 1 - sk / 0.6;
+    }
+  }
+  if (anim.turtle) {
+    const a = t * 0.25;
+    anim.turtle.group.position.set(-4.6 + Math.cos(a) * 1.8, SEA_LEVEL - 0.05 + Math.sin(t * 1.2) * 0.04, 6 + Math.sin(a) * 1.4);
+    anim.turtle.group.rotation.y = -a;
+    for (const f of anim.turtle.flippers) f.rotation.z = Math.sin(t * 3 + (f.userData.side as number)) * 0.4 * (f.userData.side as number);
   }
 }
 
 export function pirateCove(): BoardDef {
-  flags.length = 0;
-  const { spaces, startId } = layout();
+  const { spaces, startId, boardwalk: ids } = layout();
+  boardwalkIds = ids;
   return {
     id: 'pirate',
     name: 'Pirate Cove',
@@ -811,3 +978,4 @@ export function pirateCove(): BoardDef {
     },
   };
 }
+
