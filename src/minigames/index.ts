@@ -27,6 +27,7 @@ import { knightJoust } from './knightjoust';
 import { memoryMatch } from './memorymatch';
 import { moleBonk } from './molebonk';
 import { lavaRise } from './lavarise';
+import { kartClash } from './kartclash';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -39,6 +40,7 @@ import { rocketRodeo } from './rocketrodeo';
 import { rollingRock } from './rollingrock';
 import { skyGlider } from './skyglider';
 import { sniperTower } from './snipertower';
+import { snackAttack } from './snackattack';
 import { snowballSiege } from './snowsiege';
 import { spikeRoller } from './spikeroller';
 import { sweepLeap } from './sweepleap';
@@ -79,6 +81,8 @@ export const MINIGAMES: MinigameDef[] = [
   knightJoust,
   rocketRodeo,
   lavaRise,
+  kartClash,
+  snackAttack,
   puckRush,
   cannonVolley,
   tugTussle,
