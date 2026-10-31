@@ -10,6 +10,7 @@ import { coinShower } from './coinshower';
 import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
 import { fuseFrenzy } from './fusefrenzy';
+import { dodgeDash } from './dodgedash';
 import { giantShove } from './giantshove';
 import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
@@ -19,6 +20,7 @@ import { jumpRopeJam } from './jumprope';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
+import { pipePuzzle } from './pipepuzzle';
 import { puckRush } from './puckrush';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
@@ -58,6 +60,8 @@ export const MINIGAMES: MinigameDef[] = [
   hoopTroop,
   chillyChute,
   tankTangle,
+  dodgeDash,
+  pipePuzzle,
   rollingRock,
   beamMeUp,
   peekabooPanic,
