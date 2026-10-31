@@ -20,6 +20,7 @@ import { hoopTroop } from './hooptroop';
 import { hotFuse } from './hotfuse';
 import { memoryMatch } from './memorymatch';
 import { jumpRopeJam } from './jumprope';
+import { moleBonk } from './molebonk';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -29,6 +30,7 @@ import { platformPop } from './platformpop';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
+import { skyGlider } from './skyglider';
 import { snowballSiege } from './snowsiege';
 import { spikeRoller } from './spikeroller';
 import { sweepLeap } from './sweepleap';
@@ -63,6 +65,8 @@ export const MINIGAMES: MinigameDef[] = [
   balloonBounce,
   graveyardShift,
   swordSpin,
+  skyGlider,
+  moleBonk,
   puckRush,
   cannonVolley,
   tugTussle,
