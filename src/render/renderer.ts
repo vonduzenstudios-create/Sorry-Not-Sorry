@@ -9,6 +9,11 @@ export class Renderer {
   readonly three: THREE.WebGLRenderer;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+  /**
+   * A second scene drawn on top of the main one, inside the screen rectangle
+   * of an HTML element (the minigame preview's practice pads).
+   */
+  inset: { scene: THREE.Scene; camera: THREE.Camera; el: HTMLElement } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.three = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -37,5 +42,20 @@ export class Renderer {
 
   render(): void {
     this.three.render(this.scene, this.camera);
+    const inset = this.inset;
+    if (!inset) return;
+    const r = inset.el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+    const y = window.innerHeight - r.bottom;
+    const t = this.three;
+    t.autoClear = false;
+    t.setScissorTest(true);
+    t.setViewport(r.left, y, r.width, r.height);
+    t.setScissor(r.left, y, r.width, r.height);
+    t.clearDepth();
+    t.render(inset.scene, inset.camera);
+    t.setScissorTest(false);
+    t.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    t.autoClear = true;
   }
 }
