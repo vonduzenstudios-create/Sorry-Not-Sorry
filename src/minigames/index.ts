@@ -7,6 +7,7 @@ import { cannonVolley } from './cannonvolley';
 import { coinShower } from './coinshower';
 import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
+import { fishFrenzy } from './fishfrenzy';
 import { fuseFrenzy } from './fusefrenzy';
 import { giantShove } from './giantshove';
 import { hexHop } from './hexhop';
@@ -19,6 +20,7 @@ import { puckRush } from './puckrush';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
+import { sawSprint } from './sawsprint';
 import { snowballSiege } from './snowsiege';
 import { sweepLeap } from './sweepleap';
 import { traceRace } from './tracerace';
@@ -41,6 +43,8 @@ export const MINIGAMES: MinigameDef[] = [
   hotFuse,
   colorDrop,
   crateClimb,
+  sawSprint,
+  fishFrenzy,
   puckRush,
   cannonVolley,
   tugTussle,
