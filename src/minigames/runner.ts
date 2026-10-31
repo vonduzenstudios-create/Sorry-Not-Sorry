@@ -1,21 +1,23 @@
+import * as THREE from 'three';
 import { chaseTheme, tenseTheme } from '../audio/songs/minigame';
+import { Character } from '../characters/character';
 import type { Game } from '../core/game';
 import { Tasks } from '../core/tasks';
 import { css } from '../render/palette';
+import { MinigamePreview } from './preview';
 import type { Minigame, MinigameDef, MinigameMode, MinigamePlayer, MinigameResult } from './types';
-
-const KIND_LABEL = { ffa: '4-Player', '2v2': '2 vs 2', '1v3': '1 vs 3' } as const;
 
 /**
  * Plays one minigame inside whatever scene hosts it (the board, or the
- * minigame test screen): intro card, 3-2-1, play with a clock, finish, results.
+ * minigame test screen): preview (with optional practice rounds), 3-2-1,
+ * play with a clock, finish, results.
  * The host forwards `update(dt)` while `active`.
  */
 export class MinigameRunner {
   private tasks = new Tasks();
   private mg: Minigame | null = null;
   private playing = false;
-  private overlay: HTMLDivElement | null = null;
+  private preview: MinigamePreview | null = null;
   private clock: HTMLDivElement | null = null;
   private remaining = 0;
 
@@ -27,82 +29,58 @@ export class MinigameRunner {
 
   update(dt: number): void {
     this.tasks.update(dt);
-    if (!this.mg) return;
+    this.preview?.update(dt);
+    const mg = this.mg;
+    if (!mg) return;
     if (this.playing) {
       // A decided game stops simulating while the runner wraps it up.
-      if (!this.mg.winners) {
-        this.mg.play(dt);
-        this.mg.trackOuts();
+      if (!mg.winners) {
+        mg.play(dt);
+        mg.trackOuts();
       }
       this.remaining -= dt;
       if (this.clock) this.clock.textContent = String(Math.max(0, Math.ceil(this.remaining)));
     }
-    this.mg.animate(dt);
+    mg.animate(dt);
   }
 
   /** Returns the winners (possibly none) and everyone's finishing place. */
   async run(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode = 'round'): Promise<MinigameResult> {
     const game = this.game;
     game.ui.root.classList.add('in-minigame');
-    this.overlay = game.ui.add('mg-overlay');
+    const overlay = game.ui.add('mg-overlay');
     const mg = def.create();
-    mg.init(game, players, this.overlay);
+    mg.init(game, players, overlay);
     this.mg = mg;
     game.renderer.setView(mg.scene, mg.camera);
-    const card = document.createElement('div');
-    card.className = 'mg-card panel';
-    card.innerHTML = `
-      <div class="mg-kind">${mode === 'duel' ? 'Duel' : mode === 'battle' ? 'Battle' : KIND_LABEL[def.kind]} minigame</div>
-      <div class="mg-name">${def.name}</div>
-      ${teamsHtml(def, players, mode)}
-      <div class="mg-rules">${def.rules}</div>
-      <div class="mg-controls">${def.controls}</div>
-      <div class="mg-start">${players.some((p) => p.controller) ? 'Press A to start!' : 'Starting...'}</div>`;
-    this.overlay.appendChild(card);
 
-    const humans = players.filter((p) => p.controller);
+    // Preview: rules, controls and practice pads. Practice rounds loop back here.
+    const preview = new MinigamePreview(game, def, players, mode, overlay);
+    this.preview = preview;
     let t = 0;
-    await this.tasks.until((dt) => {
-      t += dt;
-      if (humans.length === 0) return t > 3;
-      return t > 0.4 && humans.some((p) => p.controller!.pressed('a'));
-    });
-    game.audio.play('confirm');
-    card.remove();
-
-    const big = document.createElement('div');
-    big.className = 'mg-big';
-    this.overlay.appendChild(big);
-    for (const n of ['3', '2', '1']) {
-      big.textContent = n;
-      big.classList.remove('pop');
-      void big.offsetWidth;
-      big.classList.add('pop');
-      game.audio.play('select');
-      await this.tasks.sleep(0.6);
+    for (;;) {
+      t = 0;
+      await this.tasks.until((dt) => {
+        t += dt;
+        if (!preview.hasHumans) return t > 3;
+        return t > 0.4 && preview.decided() !== null;
+      });
+      if (!preview.hasHumans || preview.decided() === 'play') break;
+      preview.visible = false;
+      overlay.style.display = 'none';
+      await this.practice(def, players, mg);
+      overlay.style.display = '';
+      preview.visible = true;
+      preview.reset();
     }
-    big.textContent = 'GO!';
-    game.audio.play('confirm');
-    game.audio.playSong(def.song ?? (def.kind === 'ffa' ? chaseTheme : tenseTheme));
+    await this.tasks.sleep(0.3);
+    preview.dispose();
+    this.preview = null;
 
-    this.clock = document.createElement('div');
-    this.clock.className = 'mg-clock panel';
-    this.overlay.appendChild(this.clock);
-    this.remaining = mg.timeLimit;
-    this.playing = true;
-    window.setTimeout(() => big.textContent === 'GO!' && (big.textContent = ''), 600);
-
-    await this.tasks.until(() => mg.winners !== null || this.remaining <= 0);
-    this.playing = false;
-    const winners = teamWinners(def, players, mg.winners ?? mg.timeout());
+    const raw = await this.round(def, mg, overlay, false);
+    const winners = teamWinners(def, players, raw);
     const placement = mg.placement(winners);
-    game.audio.stopSong();
-    big.textContent = 'FINISH!';
-    big.classList.remove('pop');
-    void big.offsetWidth;
-    big.classList.add('pop');
-    game.audio.play('boom');
-    await this.tasks.sleep(1.2);
+    const big = overlay.querySelector('.mg-big') as HTMLDivElement;
 
     for (const p of players) {
       const won = winners.includes(p.seat);
@@ -118,16 +96,91 @@ export class MinigameRunner {
     result.className = 'mg-result panel';
     result.innerHTML =
       (names.length ? `${names.join(' & ')} win${names.length === 1 ? 's' : ''}!` : 'Nobody wins!') + placesHtml(players, placement);
-    this.overlay.appendChild(result);
+    overlay.appendChild(result);
     game.audio.play(names.length ? 'star' : 'back');
     await this.tasks.sleep(2.6);
 
-    this.overlay.remove();
+    overlay.remove();
     game.ui.root.classList.remove('in-minigame');
-    this.overlay = null;
     this.clock = null;
     this.mg = null;
     return { winners, placement };
+  }
+
+  /**
+   * 3-2-1, play until decided or out of time, FINISH. Returns the raw winners.
+   * Any human can end a practice round early with START.
+   */
+  private async round(def: MinigameDef, mg: Minigame, overlay: HTMLDivElement, practice: boolean): Promise<number[]> {
+    const game = this.game;
+    const big = document.createElement('div');
+    big.className = 'mg-big';
+    overlay.appendChild(big);
+    const pop = (text: string) => {
+      big.textContent = text;
+      big.classList.remove('pop');
+      void big.offsetWidth;
+      big.classList.add('pop');
+    };
+    for (const n of ['3', '2', '1']) {
+      pop(n);
+      game.audio.play('select');
+      await this.tasks.sleep(0.6);
+    }
+    big.textContent = 'GO!';
+    game.audio.play('confirm');
+    game.audio.playSong(def.song ?? (def.kind === 'ffa' ? chaseTheme : tenseTheme));
+
+    this.clock = document.createElement('div');
+    this.clock.className = 'mg-clock panel';
+    overlay.appendChild(this.clock);
+    if (practice) {
+      const tag = document.createElement('div');
+      tag.className = 'mg-practice panel';
+      tag.textContent = 'PRACTICE · START: stop';
+      overlay.appendChild(tag);
+    }
+    this.remaining = mg.timeLimit;
+    this.playing = true;
+    window.setTimeout(() => big.textContent === 'GO!' && (big.textContent = ''), 600);
+
+    let quit = false;
+    await this.tasks.until(() => {
+      if (practice && mg.players.some((p) => p.controller && !p.controller.gone && p.controller.pressed('start'))) quit = true;
+      return quit || mg.winners !== null || this.remaining <= 0;
+    });
+    this.playing = false;
+    const raw = mg.winners ?? (quit ? [] : mg.timeout());
+    game.audio.stopSong();
+    pop(practice ? 'PRACTICE OVER!' : 'FINISH!');
+    game.audio.play(practice ? 'back' : 'boom');
+    await this.tasks.sleep(practice ? 1.4 : 1.2);
+    return raw;
+  }
+
+  /**
+   * A throwaway round of the same game with stand-in characters, so the real
+   * game's arena and players stay exactly as they were set up.
+   */
+  private async practice(def: MinigameDef, players: MinigamePlayer[], real: Minigame): Promise<void> {
+    const game = this.game;
+    const overlay = game.ui.add('mg-overlay');
+    const stand = players.map((p) => ({ ...p, character: new Character(p.character.def), alive: true, data: {} }));
+    const mg = def.create();
+    mg.init(game, stand, overlay);
+    this.mg = mg;
+    game.renderer.setView(mg.scene, mg.camera);
+    await this.round(def, mg, overlay, true);
+    overlay.remove();
+    this.clock = null;
+    this.mg = real;
+    game.renderer.setView(real.scene, real.camera);
+    mg.scene.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        for (const m of [o.material].flat()) m.dispose();
+      }
+    });
   }
 }
 
@@ -152,15 +205,4 @@ function placesHtml(players: MinigamePlayer[], placement: number[][]): string {
     return row;
   });
   return `<div class="mg-places">${rows.join('')}</div>`;
-}
-
-function teamsHtml(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode): string {
-  if (def.kind === 'ffa' && mode !== 'duel') return '';
-  const teams = [0, 1].map((team) =>
-    players
-      .filter((p) => p.team === team)
-      .map((p) => `<span style="color:${css(p.character.def.colors.accent)}">${p.character.def.name}</span>`)
-      .join(' & '),
-  );
-  return `<div class="mg-teams">${teams[0]} <b>vs</b> ${teams[1]}</div>`;
 }

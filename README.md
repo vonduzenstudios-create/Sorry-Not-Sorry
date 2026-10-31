@@ -47,6 +47,8 @@ Orange **X** spaces start a battle: everyone pays into a pot and the minigame wi
 
 Every minigame has its own rules and CPU players. Ones marked ⚔ can also settle Duel Glove fights.
 
+Before each minigame a preview screen shows its rules and controls, with a practice pad for every player: your character walks in place with the stick and acts out each button, with a bubble saying what that button does in this game. Press **Start** when you're ready and pick **Play for real** or **Practice round** (B backs out). Once every human has picked, a practice round runs if anyone asked for one (Start ends it early), then it's back to the preview. Online, everyone's picks travel as normal lockstep input, so all players stay in sync.
+
 | Type | Minigames |
 | --- | --- |
 | 4-player | Bumper Brawl ⚔, Hex Hop ⚔, Bomb Drop ⚔, Trace Race ⚔, Coin Shower ⚔, Quick Draw ⚔, Pump Pump Pop ⚔, Parrot Says ⚔, Paint Panic ⚔, Sweep Leap ⚔, Archer Alley ⚔, Platform Pop ⚔ |
