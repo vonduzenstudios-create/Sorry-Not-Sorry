@@ -11,6 +11,10 @@ const DRAG = 2.4;
 const DASH_COOLDOWN = 1.3;
 const DASH_TIME = 0.3;
 const BOUNCE = 0.7;
+/** Knockback lives in its own vector so the walking speed cap can't erase it. */
+const KNOCK_DRAG = 3;
+/** Knockback speed (and hit strength) that causes a stagger. */
+const STAGGER_AT = 3;
 
 interface Body {
   vel: THREE.Vector3;
@@ -21,6 +25,14 @@ interface Body {
   dashPower: number;
   dash: number;
   cool: number;
+  /** Knockback velocity from hits; decays on its own, never capped by `max`. */
+  push: THREE.Vector3;
+  /** Most knockback this body can take in one go. */
+  maxPush: number;
+  /** Stagger time left: steering and charging are weakened. */
+  stun: number;
+  /** How much a hit staggers this body (the giant shrugs hits off faster). */
+  grit: number;
 }
 
 /**
@@ -72,12 +84,12 @@ class GiantShove extends Minigame {
     solo.character.scale.setScalar(1.7);
     solo.character.position.set(0, 0, -1.5);
     solo.character.rotation.y = 0;
-    this.bodies.set(solo, { vel: new THREE.Vector3(), mass: 3.6, r: 0.85, accel: 14, max: 4.8, dashPower: 9.5, dash: 0, cool: 0 });
+    this.bodies.set(solo, { vel: new THREE.Vector3(), mass: 3.6, r: 0.85, accel: 14, max: 4.8, dashPower: 9.5, dash: 0, cool: 0, push: new THREE.Vector3(), maxPush: 5, stun: 0, grit: 0.5 });
     this.runners.forEach((p, i) => {
       const a = Math.PI / 2 + (i - 1) * 0.8;
       p.character.position.set(Math.cos(a) * 4.5, 0, Math.sin(a) * 4.5);
       p.character.rotation.y = Math.PI;
-      this.bodies.set(p, { vel: new THREE.Vector3(), mass: 1, r: 0.45, accel: 17, max: 5.6, dashPower: 8, dash: 0, cool: 0 });
+      this.bodies.set(p, { vel: new THREE.Vector3(), mass: 1, r: 0.45, accel: 17, max: 5.6, dashPower: 8, dash: 0, cool: 0, push: new THREE.Vector3(), maxPush: 15, stun: 0, grit: 1 });
     });
     this.camera.position.set(0, 15, 14);
     this.camera.lookAt(0, 0, 0.4);
@@ -142,23 +154,30 @@ class GiantShove extends Minigame {
       const c = p.character;
       b.cool = Math.max(0, b.cool - dt);
       b.dash = Math.max(0, b.dash - dt);
+      if (b.stun > 0) {
+        b.stun = Math.max(0, b.stun - dt);
+        if (b.stun === 0) c.setExpression('neutral');
+      }
       let dir: THREE.Vector3;
       let dash: boolean;
       if (p.controller) {
         dir = stick(p);
         dash = p.controller.pressed('a');
       } else ({ dir, dash } = p === this.solo ? this.cpuGiant() : this.cpuRunner(p));
-      if (dash && b.cool <= 0) {
+      if (dash && b.cool <= 0 && b.stun <= 0) {
         const d = dir.lengthSq() > 0.01 ? dir.clone().normalize() : new THREE.Vector3(Math.sin(c.rotation.y), 0, Math.cos(c.rotation.y));
         b.vel.addScaledVector(d, b.dashPower);
         b.dash = DASH_TIME;
         b.cool = DASH_COOLDOWN;
         this.game.audio.play('jump');
       }
-      b.vel.addScaledVector(dir, b.accel * dt);
+      b.vel.addScaledVector(dir, b.accel * dt * (b.stun > 0 ? 0.3 : 1));
       b.vel.multiplyScalar(Math.exp(-DRAG * dt));
+      // Ease back down to walking speed after a charge rather than stopping dead.
       const cap = b.dash > 0 ? b.max + b.dashPower : b.max;
-      if (b.vel.length() > cap) b.vel.setLength(cap);
+      const speed = b.vel.length();
+      if (speed > cap) b.vel.setLength(Math.max(cap, speed - 30 * dt));
+      b.push.multiplyScalar(Math.exp(-KNOCK_DRAG * dt));
     }
 
     // Mass-weighted bumps; dashing hits land harder.
@@ -178,12 +197,15 @@ class GiantShove extends Minigame {
         const wa = b.mass / (a.mass + b.mass);
         pa.character.position.addScaledVector(n, -overlap * wa);
         pb.character.position.addScaledVector(n, overlap * (1 - wa));
-        const rel = a.vel.clone().sub(b.vel).dot(n);
+        const rel = a.vel.clone().add(a.push).sub(b.vel).sub(b.push).dot(n);
         if (rel <= 0) continue;
         const punch = a.dash > 0 || b.dash > 0 ? 1.6 : 1;
         const jImp = ((1 + BOUNCE) * rel * punch) / (1 / a.mass + 1 / b.mass);
-        a.vel.addScaledVector(n, -jImp / a.mass);
-        b.vel.addScaledVector(n, jImp / b.mass);
+        // Each side's walking velocity into the other stops; the hit goes into knockback.
+        this.absorb(a, n, true);
+        this.absorb(b, n, false);
+        this.knock(pa, a, n.clone().negate(), jImp / a.mass);
+        this.knock(pb, b, n, jImp / b.mass);
         if (punch > 1) this.game.audio.play('pop');
       }
     }
@@ -192,11 +214,11 @@ class GiantShove extends Minigame {
       const c = p.character;
       if (!p.alive) continue;
       const b = this.bodies.get(p)!;
-      c.position.addScaledVector(b.vel, dt);
+      c.position.addScaledVector(b.vel, dt).addScaledVector(b.push, dt);
       face(p, b.vel, dt);
       moveAnim(p, b.vel.length() / b.max);
       if (Math.hypot(c.position.x, c.position.z) > RADIUS + 0.1) {
-        knockOut(p, b.vel.clone().multiplyScalar(0.6));
+        knockOut(p, b.vel.clone().add(b.push).multiplyScalar(0.6));
         this.game.audio.play(p === this.solo ? 'boom' : 'back');
         this.renderScore();
       }
@@ -204,6 +226,21 @@ class GiantShove extends Minigame {
 
     if (!this.solo.alive) this.finish(this.runners);
     else if (this.runners.every((r) => !r.alive)) this.finish([this.solo]);
+  }
+
+  /** Removes the part of a body's walking velocity heading into the contact. */
+  private absorb(b: Body, n: THREE.Vector3, towardN: boolean): void {
+    const into = b.vel.dot(n) * (towardN ? 1 : -1);
+    if (into > 0) b.vel.addScaledVector(n, towardN ? -into : into);
+  }
+
+  private knock(p: MinigamePlayer, b: Body, dir: THREE.Vector3, amount: number): void {
+    b.push.addScaledVector(dir, amount);
+    if (b.push.length() > b.maxPush) b.push.setLength(b.maxPush);
+    if (amount > STAGGER_AT) {
+      b.stun = Math.max(b.stun, Math.min(0.45, 0.12 + amount * 0.03) * b.grit);
+      p.character.setExpression('surprised');
+    }
   }
 
   animate(dt: number): void {
