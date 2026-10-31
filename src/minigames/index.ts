@@ -28,8 +28,10 @@ import { memoryMatch } from './memorymatch';
 import { moleBonk } from './molebonk';
 import { lavaRise } from './lavarise';
 import { kartClash } from './kartclash';
+import { magnetMayhem } from './magnet';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
+import { pinballPanic } from './pinball';
 import { peekabooPanic } from './peekaboo';
 import { pipePuzzle } from './pipepuzzle';
 import { platformPop } from './platformpop';
@@ -83,6 +85,8 @@ export const MINIGAMES: MinigameDef[] = [
   lavaRise,
   kartClash,
   snackAttack,
+  pinballPanic,
+  magnetMayhem,
   puckRush,
   cannonVolley,
   tugTussle,
