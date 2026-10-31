@@ -1,6 +1,6 @@
 import { archerAlley } from './archeralley';
-import { beamHop } from './beamhop';
 import { balloonBounce } from './balloonbounce';
+import { beamHop } from './beamhop';
 import { beamMeUp } from './beammeup';
 import { bombDrop } from './bombdrop';
 import { boogieStomp } from './boogiestomp';
@@ -12,29 +12,31 @@ import { chompChase } from './chompchase';
 import { coinShower } from './coinshower';
 import { colorDrop } from './colordrop';
 import { crateClimb } from './crateclimb';
-import { fuseFrenzy } from './fusefrenzy';
 import { dodgeDash } from './dodgedash';
+import { fuseFrenzy } from './fusefrenzy';
 import { ghostHunt } from './ghosthunt';
 import { giantShove } from './giantshove';
 import { graveyardShift } from './graveshift';
+import { hammerDrop } from './hammerdrop';
 import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
 import { hotFuse } from './hotfuse';
-import { memoryMatch } from './memorymatch';
-import { jumpRopeJam } from './jumprope';
-import { moleBonk } from './molebonk';
 import { hoverRace } from './hoverrace';
+import { jumpRopeJam } from './jumprope';
 import { knightJoust } from './knightjoust';
+import { memoryMatch } from './memorymatch';
+import { moleBonk } from './molebonk';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
 import { pipePuzzle } from './pipepuzzle';
-import { puckRush } from './puckrush';
 import { platformPop } from './platformpop';
+import { puckRush } from './puckrush';
 import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
 import { skyGlider } from './skyglider';
+import { sniperTower } from './snipertower';
 import { snowballSiege } from './snowsiege';
 import { spikeRoller } from './spikeroller';
 import { sweepLeap } from './sweepleap';
@@ -43,8 +45,8 @@ import { tankTangle } from './tanktangle';
 import { traceRace } from './tracerace';
 import { treasureHaul } from './treasurehaul';
 import { tugTussle } from './tugtussle';
-import type { MinigameDef } from './types';
 import { wallSmash } from './wallsmash';
+import type { MinigameDef } from './types';
 
 export const MINIGAMES: MinigameDef[] = [
   bumperBrawl,
@@ -93,4 +95,6 @@ export const MINIGAMES: MinigameDef[] = [
   wallSmash,
   ghostHunt,
   bridgeBurn,
+  hammerDrop,
+  sniperTower,
 ];
