@@ -420,6 +420,11 @@ class PipePuzzle extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    const t = this.teams[p.team];
+    return [t.solved, t.filled];
+  }
+
   timeout(): number[] {
     const [a, b] = this.teams;
     const diff = a.solved - b.solved || a.filled - b.filled;

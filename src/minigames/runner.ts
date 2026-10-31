@@ -2,7 +2,7 @@ import { chaseTheme, tenseTheme } from '../audio/songs/minigame';
 import type { Game } from '../core/game';
 import { Tasks } from '../core/tasks';
 import { css } from '../render/palette';
-import type { Minigame, MinigameDef, MinigameMode, MinigamePlayer } from './types';
+import type { Minigame, MinigameDef, MinigameMode, MinigamePlayer, MinigameResult } from './types';
 
 const KIND_LABEL = { ffa: '4-Player', '2v2': '2 vs 2', '1v3': '1 vs 3' } as const;
 
@@ -30,15 +30,18 @@ export class MinigameRunner {
     if (!this.mg) return;
     if (this.playing) {
       // A decided game stops simulating while the runner wraps it up.
-      if (!this.mg.winners) this.mg.play(dt);
+      if (!this.mg.winners) {
+        this.mg.play(dt);
+        this.mg.trackOuts();
+      }
       this.remaining -= dt;
       if (this.clock) this.clock.textContent = String(Math.max(0, Math.ceil(this.remaining)));
     }
     this.mg.animate(dt);
   }
 
-  /** Returns the seat numbers of the winners (possibly none). */
-  async run(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode = 'round'): Promise<number[]> {
+  /** Returns the winners (possibly none) and everyone's finishing place. */
+  async run(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode = 'round'): Promise<MinigameResult> {
     const game = this.game;
     game.ui.root.classList.add('in-minigame');
     this.overlay = game.ui.add('mg-overlay');
@@ -91,7 +94,8 @@ export class MinigameRunner {
 
     await this.tasks.until(() => mg.winners !== null || this.remaining <= 0);
     this.playing = false;
-    const winners = mg.winners ?? mg.timeout();
+    const winners = teamWinners(def, players, mg.winners ?? mg.timeout());
+    const placement = mg.placement(winners);
     game.audio.stopSong();
     big.textContent = 'FINISH!';
     big.classList.remove('pop');
@@ -112,7 +116,8 @@ export class MinigameRunner {
     big.textContent = '';
     const result = document.createElement('div');
     result.className = 'mg-result panel';
-    result.innerHTML = names.length ? `${names.join(' & ')} win${names.length === 1 ? 's' : ''}!` : 'Nobody wins!';
+    result.innerHTML =
+      (names.length ? `${names.join(' & ')} win${names.length === 1 ? 's' : ''}!` : 'Nobody wins!') + placesHtml(players, placement);
     this.overlay.appendChild(result);
     game.audio.play(names.length ? 'star' : 'back');
     await this.tasks.sleep(2.6);
@@ -122,8 +127,31 @@ export class MinigameRunner {
     this.overlay = null;
     this.clock = null;
     this.mg = null;
-    return winners;
+    return { winners, placement };
   }
+}
+
+/** In team games the whole side shares the win, even teammates who got knocked out. */
+function teamWinners(def: MinigameDef, players: MinigamePlayer[], winners: number[]): number[] {
+  if (def.kind === 'ffa') return winners;
+  const teams = new Set(players.filter((p) => winners.includes(p.seat)).map((p) => p.team));
+  return players.filter((p) => teams.has(p.team)).map((p) => p.seat);
+}
+
+const PLACE = ['1st', '2nd', '3rd', '4th'];
+
+function placesHtml(players: MinigamePlayer[], placement: number[][]): string {
+  let place = 0;
+  const rows = placement.map((group) => {
+    const names = group.map((seat) => {
+      const p = players.find((q) => q.seat === seat)!;
+      return `<span style="color:${css(p.character.def.colors.accent)}">${p.character.def.name}</span>`;
+    });
+    const row = `<div><b>${PLACE[place]}</b> ${names.join(' & ')}</div>`;
+    place += group.length;
+    return row;
+  });
+  return `<div class="mg-places">${rows.join('')}</div>`;
 }
 
 function teamsHtml(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode): string {

@@ -407,6 +407,10 @@ class PinballPanic extends Minigame {
     });
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.score[this.players.indexOf(p)];
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => this.score[this.players.indexOf(p)], 0);
   }

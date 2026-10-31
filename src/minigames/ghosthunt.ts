@@ -86,7 +86,7 @@ class GhostHunt extends Minigame {
   readonly timeLimit = 30;
   private ghost!: THREE.Group;
   private beams = new Map<MinigamePlayer, { light: THREE.SpotLight; cone: THREE.Mesh }>();
-  private sparks: { mesh: THREE.Mesh; vel: THREE.Vector3; left: number }[] = [];
+  private sparks: { mesh: THREE.Mesh; vel: THREE.Vector3; left: number; from: MinigamePlayer }[] = [];
   private drips: Drip[] = [];
   private booRing!: THREE.Mesh;
   private hits = 0;
@@ -245,7 +245,7 @@ class GhostHunt extends Minigame {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), new THREE.MeshBasicMaterial({ color: 0xa8f4ff }));
     mesh.position.copy(p.character.position).addScaledVector(this.forward(p), 0.6).setY(0.9);
     this.scene.add(mesh);
-    this.sparks.push({ mesh, vel: this.forward(p).multiplyScalar(SPARK_SPEED), left: ZAP_RANGE / SPARK_SPEED });
+    this.sparks.push({ mesh, vel: this.forward(p).multiplyScalar(SPARK_SPEED), left: ZAP_RANGE / SPARK_SPEED, from: p });
     this.game.audio.play('pop');
   }
 
@@ -257,6 +257,7 @@ class GhostHunt extends Minigame {
       const hit = this.safe <= 0 && Math.hypot(s.mesh.position.x - g.x, s.mesh.position.z - g.z) < SPARK_HIT;
       if (hit) {
         this.hits++;
+        s.from.data.zaps = ((s.from.data.zaps as number | undefined) ?? 0) + 1;
         this.safe = SAFE;
         this.renderScore();
         this.solo.character.setExpression('surprised');
@@ -477,6 +478,10 @@ class GhostHunt extends Minigame {
         this.drips.splice(this.drips.indexOf(d), 1);
       }
     }
+  }
+
+  protected standing(p: MinigamePlayer): number | number[] {
+    return (p.data.zaps as number | undefined) ?? 0;
   }
 
   timeout(): number[] {

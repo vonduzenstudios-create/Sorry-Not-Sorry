@@ -25,8 +25,8 @@ export class MinigameTestScene implements Scene {
     this.runner = new MinigameRunner(game);
     const loop = async () => {
       for (;;) {
-        const winners = await this.runner.run(def, makeMinigamePlayers(game.session.seats, teams, duel), duel ? 'duel' : 'round');
-        console.info(`[minigame] ${def.id} winners: ${winners.join(',') || 'none'}`);
+        const { winners, placement } = await this.runner.run(def, makeMinigamePlayers(game.session.seats, teams, duel), duel ? 'duel' : 'round');
+        console.info(`[minigame] ${def.id} winners: ${winners.join(',') || 'none'} placement: ${placement.map((g) => g.join('=')).join(',')}`);
       }
     };
     void loop();

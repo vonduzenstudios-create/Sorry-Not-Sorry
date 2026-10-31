@@ -336,6 +336,10 @@ class SnackAttack extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.snacks as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => p.data.snacks as number, 0);
   }

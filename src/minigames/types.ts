@@ -33,6 +33,14 @@ export interface MinigameDef {
   create(): Minigame;
 }
 
+/** How a minigame ended: who won, and everyone's finishing place. */
+export interface MinigameResult {
+  /** Seats that take the reward. In team games, the whole winning team. */
+  winners: number[];
+  /** Seats grouped by place, best first; players in one group tied. */
+  placement: number[][];
+}
+
 /**
  * Base for every minigame. Subclasses build their arena in `setup`, run the
  * game in `play`, and call `finish(winners)` when it's decided. If time runs
@@ -49,6 +57,8 @@ export abstract class Minigame {
   winners: number[] | null = null;
   /** HTML layer for minigame-specific HUD (scores, callouts). */
   overlay!: HTMLDivElement;
+  /** When each knocked-out player went down, for survival order. */
+  private outAt = new Map<MinigamePlayer, number>();
 
   init(game: Game, players: MinigamePlayer[], overlay: HTMLDivElement): void {
     this.game = game;
@@ -63,6 +73,47 @@ export abstract class Minigame {
   abstract play(dt: number): void;
   /** Winners (seat numbers) when the clock hits zero. */
   abstract timeout(): number[];
+
+  /**
+   * How well a player did, beyond winning: higher is better, and arrays
+   * compare entry by entry. Games with points, laps or health override it;
+   * elimination games can leave it and rank by who survived longest.
+   */
+  protected standing(_p: MinigamePlayer): number | number[] {
+    return 0;
+  }
+
+  /** Notes who just got knocked out. The runner calls it every play frame. */
+  trackOuts(): void {
+    for (const p of this.players) {
+      if (p.alive) this.outAt.delete(p);
+      else if (!this.outAt.has(p)) this.outAt.set(p, this.t);
+    }
+  }
+
+  /** Full finishing order: winners, then standing, then who lasted longest. */
+  placement(winners: number[]): number[][] {
+    this.trackOuts();
+    const key = (p: MinigamePlayer): number[] => [
+      winners.includes(p.seat) ? 1 : 0,
+      ...[this.standing(p)].flat(),
+      this.outAt.get(p) ?? Infinity,
+    ];
+    const cmp = (a: number[], b: number[]): number => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const d = (b[i] ?? 0) - (a[i] ?? 0);
+        if (d !== 0 && !Number.isNaN(d)) return d;
+      }
+      return 0;
+    };
+    const ranked = this.players.map((p) => ({ seat: p.seat, key: key(p) })).sort((a, b) => cmp(a.key, b.key));
+    const groups: number[][] = [];
+    ranked.forEach((r, i) => {
+      if (i > 0 && cmp(ranked[i - 1].key, r.key) === 0) groups[groups.length - 1].push(r.seat);
+      else groups.push([r.seat]);
+    });
+    return groups;
+  }
 
   /** Runs every frame, before and after play too: animation only. */
   animate(dt: number): void {

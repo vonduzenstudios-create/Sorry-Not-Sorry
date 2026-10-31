@@ -478,6 +478,10 @@ class KnightJoust extends Minigame {
     this.sparks = this.sparks.filter((s) => s.life > 0);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.knights.get(p)!.hp;
+  }
+
   timeout(): number[] {
     // Most plumes left among those still riding.
     const live = this.alive;

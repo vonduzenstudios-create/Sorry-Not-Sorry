@@ -410,6 +410,10 @@ class VolleyBash extends Minigame {
     this.ring.scale.setScalar(1 + Math.sin(this.t * 10) * 0.08);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.score[p.team];
+  }
+
   timeout(): number[] {
     if (this.score[0] === this.score[1]) return [];
     const team = this.score[0] > this.score[1] ? 0 : 1;

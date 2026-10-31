@@ -182,6 +182,10 @@ class CoinShower extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.coins as number;
+  }
+
   timeout(): number[] {
     const best = Math.max(...this.players.map((p) => p.data.coins as number));
     return this.players.filter((p) => p.data.coins === best).map((p) => p.seat);

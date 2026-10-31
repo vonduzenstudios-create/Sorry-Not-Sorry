@@ -158,6 +158,10 @@ class QuickDraw extends Minigame {
     this.renderScore();
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.wins as number;
+  }
+
   timeout(): number[] {
     const best = Math.max(...this.players.map((p) => p.data.wins as number));
     if (best === 0) return [];

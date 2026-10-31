@@ -214,6 +214,7 @@ class SnowballSiege extends Minigame {
       c.setExpression('determined');
       if (c.position.z >= GOAL_Z) {
         this.made++;
+        r.data.across = ((r.data.across as number | undefined) ?? 0) + 1;
         this.game.audio.play('star');
         this.renderScore();
         if (this.made >= NEEDED) return this.finish(this.runners);
@@ -245,6 +246,10 @@ class SnowballSiege extends Minigame {
   animate(dt: number): void {
     super.animate(dt);
     this.reticle.rotation.z += dt * 2;
+  }
+
+  protected standing(p: MinigamePlayer): number | number[] {
+    return (p.data.across as number | undefined) ?? 0;
   }
 
   timeout(): number[] {

@@ -162,6 +162,7 @@ class HoopTroop extends Minigame {
           if (sh.t + dt >= FLIGHT) {
             if (sh.make) {
               this.score[p.team]++;
+              p.data.makes = ((p.data.makes as number | undefined) ?? 0) + 1;
               s.streak++;
               s.speed += 0.1;
               p.character.setExpression('happy');
@@ -200,6 +201,10 @@ class HoopTroop extends Minigame {
   animate(dt: number): void {
     super.animate(dt);
     for (const n of this.nets) n.scale.y += (1 - n.scale.y) * Math.min(1, dt * 6);
+  }
+
+  protected standing(p: MinigamePlayer): number | number[] {
+    return [this.score[p.team], (p.data.makes as number | undefined) ?? 0];
   }
 
   timeout(): number[] {

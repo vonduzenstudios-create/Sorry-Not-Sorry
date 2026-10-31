@@ -205,6 +205,10 @@ class PuckRush extends Minigame {
     this.pause = 1.6;
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.score[p.team];
+  }
+
   timeout(): number[] {
     if (this.score[0] === this.score[1]) return [];
     const team = this.score[0] > this.score[1] ? 0 : 1;

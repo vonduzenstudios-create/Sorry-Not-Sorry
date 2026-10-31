@@ -448,6 +448,10 @@ class ChillyChute extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.sleds.find((s) => s.team === p.team)!.s;
+  }
+
   timeout(): number[] {
     const [a, b] = this.sleds;
     if (Math.abs(a.s - b.s) < 0.5) return [];

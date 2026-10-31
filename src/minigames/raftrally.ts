@@ -324,6 +324,10 @@ class RaftRally extends Minigame {
     this.updateCamera(Math.min(1, dt * 3));
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return -this.rafts.find((r) => r.crew.includes(p))!.z;
+  }
+
   timeout(): number[] {
     const [a, b] = this.rafts;
     if (Math.abs(a.z - b.z) < 0.5) return [];

@@ -167,6 +167,10 @@ class PumpPumpPop extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.air as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => Math.round(p.data.air as number), 0);
   }

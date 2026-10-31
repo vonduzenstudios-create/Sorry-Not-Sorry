@@ -421,6 +421,10 @@ class BalloonBounce extends Minigame {
     });
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.balloons as number;
+  }
+
   timeout(): number[] {
     const left = this.alive;
     const best = Math.max(0, ...left.map((p) => p.data.balloons as number));

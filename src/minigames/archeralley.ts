@@ -446,6 +446,10 @@ class ArcherAlley extends Minigame {
     });
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.score as number;
+  }
+
   timeout(): number[] {
     const winners = topScorers(this.players, (p) => p.data.score as number, 0);
     for (const p of this.players) p.character.pose = winners.includes(p.seat) ? 'cheer' : 'sulk';

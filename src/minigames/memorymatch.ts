@@ -434,6 +434,10 @@ class MemoryMatch extends Minigame {
     super.finish(winners);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.pairs as number;
+  }
+
   timeout(): number[] {
     this.callout.textContent = '';
     return topScorers(this.players, (p) => p.data.pairs as number, 0);

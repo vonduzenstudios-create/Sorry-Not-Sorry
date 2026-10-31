@@ -263,6 +263,10 @@ class TreasureHaul extends Minigame {
     for (const p of this.players) if (p.data.carry && (p.data.stun as number) <= 0 && p.character.pose === 'idle') p.character.pose = 'jump';
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.score[p.team];
+  }
+
   timeout(): number[] {
     if (this.score[0] === this.score[1]) return [];
     const team = this.score[0] > this.score[1] ? 0 : 1;
