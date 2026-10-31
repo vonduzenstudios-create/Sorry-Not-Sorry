@@ -21,6 +21,8 @@ import { hotFuse } from './hotfuse';
 import { memoryMatch } from './memorymatch';
 import { jumpRopeJam } from './jumprope';
 import { moleBonk } from './molebonk';
+import { hoverRace } from './hoverrace';
+import { knightJoust } from './knightjoust';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -67,6 +69,8 @@ export const MINIGAMES: MinigameDef[] = [
   swordSpin,
   skyGlider,
   moleBonk,
+  hoverRace,
+  knightJoust,
   puckRush,
   cannonVolley,
   tugTussle,
