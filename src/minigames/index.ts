@@ -13,6 +13,7 @@ import { giantShove } from './giantshove';
 import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
 import { hotFuse } from './hotfuse';
+import { memoryMatch } from './memorymatch';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -21,6 +22,7 @@ import { pumpPumpPop } from './pumppop';
 import { quickDraw } from './quickdraw';
 import { rollingRock } from './rollingrock';
 import { snowballSiege } from './snowsiege';
+import { spikeRoller } from './spikeroller';
 import { sweepLeap } from './sweepleap';
 import { tankTangle } from './tanktangle';
 import { traceRace } from './tracerace';
@@ -43,6 +45,8 @@ export const MINIGAMES: MinigameDef[] = [
   hotFuse,
   colorDrop,
   crateClimb,
+  spikeRoller,
+  memoryMatch,
   puckRush,
   cannonVolley,
   tugTussle,
