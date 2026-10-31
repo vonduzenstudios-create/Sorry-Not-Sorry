@@ -5,6 +5,8 @@ import { boogieStomp } from './boogiestomp';
 import { bumperBrawl } from './bumper';
 import { cannonVolley } from './cannonvolley';
 import { coinShower } from './coinshower';
+import { colorDrop } from './colordrop';
+import { crateClimb } from './crateclimb';
 import { fuseFrenzy } from './fusefrenzy';
 import { giantShove } from './giantshove';
 import { hexHop } from './hexhop';
@@ -37,6 +39,8 @@ export const MINIGAMES: MinigameDef[] = [
   sweepLeap,
   beamHop,
   hotFuse,
+  colorDrop,
+  crateClimb,
   puckRush,
   cannonVolley,
   tugTussle,
