@@ -209,6 +209,10 @@ class TraceRace extends Minigame {
     return top > 0 ? this.players.filter((_, i) => scores[i] === top) : [];
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.score(this.desks.get(p)!);
+  }
+
   timeout(): number[] {
     return this.best().map((p) => p.seat);
   }

@@ -4,7 +4,7 @@ import { css, Palette } from '../render/palette';
 import { toonMesh } from '../render/toon';
 import { arenaBasics } from './arena';
 import { cpuMash, scorePanel } from './common';
-import { Minigame, type MinigameDef } from './types';
+import { Minigame, type MinigameDef, type MinigamePlayer } from './types';
 
 /** Rope travel that wins the match. */
 const WIN = 2.2;
@@ -107,6 +107,7 @@ class TugTussle extends Minigame {
       p.data.pull = Math.max(0, (p.data.pull as number) - dt * 5);
       if (pulled) {
         this.vel += p.team === 0 ? -TUG : TUG;
+        p.data.tugs = ((p.data.tugs as number | undefined) ?? 0) + 1;
         p.data.pull = 1;
         p.character.pose = 'walk';
         p.character.moveSpeed = 1;
@@ -131,6 +132,10 @@ class TugTussle extends Minigame {
       this.game.audio.play('boom');
       this.finish(this.players.filter((p) => p.team === winTeam));
     }
+  }
+
+  protected standing(p: MinigamePlayer): number | number[] {
+    return [p.team === 0 ? -this.x : this.x, (p.data.tugs as number | undefined) ?? 0];
   }
 
   timeout(): number[] {

@@ -345,6 +345,10 @@ class SkyGlider extends Minigame {
     for (const r of this.rings) if (!r.taken) r.mesh.rotation.z += dt * (r.value > 1 ? 3 : 1);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.score as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => p.data.score as number, 0);
   }

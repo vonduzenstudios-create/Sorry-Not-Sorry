@@ -341,6 +341,7 @@ class BridgeBurn extends Minigame {
       }
       if (c.position.z <= GOAL_Z) {
         this.made++;
+        r.data.across = ((r.data.across as number | undefined) ?? 0) + 1;
         this.game.audio.play('star');
         this.renderScore();
         if (this.made >= NEEDED) return this.finish(this.runners);
@@ -385,6 +386,10 @@ class BridgeBurn extends Minigame {
     }
     for (const f of this.flames) f.scale.set(1 + Math.sin(this.t * 17) * 0.1, 1 + Math.sin(this.t * 11) * 0.2, 1);
     this.cursor.rotation.z = Math.PI / 4 + Math.sin(this.t * 4) * 0.1;
+  }
+
+  protected standing(p: MinigamePlayer): number | number[] {
+    return (p.data.across as number | undefined) ?? 0;
   }
 
   timeout(): number[] {

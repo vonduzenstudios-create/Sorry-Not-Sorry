@@ -427,6 +427,10 @@ class MagnetMayhem extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.count[this.players.indexOf(p)];
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => this.count[this.players.indexOf(p)], 0);
   }

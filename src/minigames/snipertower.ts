@@ -380,6 +380,10 @@ class SniperTower extends Minigame {
     this.reticle.scale.setScalar(k);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p === this.solo ? 0 : -(p.data.hits as number);
+  }
+
   timeout(): number[] {
     return [this.solo.seat];
   }

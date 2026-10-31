@@ -471,6 +471,10 @@ class HoverRace extends Minigame {
     for (const pad of this.pads) (pad.material as THREE.MeshToonMaterial).emissive.setRGB(0.5 * pulse, 0.38 * pulse, 0.05);
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.riders.get(p)!.prog;
+  }
+
   timeout(): number[] {
     // Whoever is furthest along wins.
     const prog = (p: MinigamePlayer) => this.riders.get(p)!.prog;

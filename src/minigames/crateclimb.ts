@@ -372,6 +372,10 @@ class CrateClimb extends Minigame {
   }
 
   /** Highest climbers win when time runs out. */
+  protected standing(p: MinigamePlayer): number | number[] {
+    return Math.round(p.character.position.y / CRATE);
+  }
+
   timeout(): number[] {
     const h = (p: MinigamePlayer) => Math.round(p.character.position.y / CRATE);
     const best = Math.max(...this.players.map(h));

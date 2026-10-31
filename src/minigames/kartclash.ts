@@ -296,6 +296,10 @@ class KartClash extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.balloons as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => p.data.balloons as number, 0);
   }

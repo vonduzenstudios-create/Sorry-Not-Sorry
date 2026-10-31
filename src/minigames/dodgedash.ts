@@ -442,6 +442,11 @@ class DodgeDash extends Minigame {
     for (const b of this.balls) if (b.state !== 'held') b.mesh.rotation.x += b.vel.length() * dt * 2;
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    const hp = (team: number) => this.players.filter((q) => q.team === team).reduce((s, q) => s + this.dodgers.get(q)!.hp, 0);
+    return [hp(p.team), this.dodgers.get(p)!.hp];
+  }
+
   timeout(): number[] {
     const hp = [0, 1].map((t) => this.players.filter((p) => p.team === t).reduce((s, p) => s + this.dodgers.get(p)!.hp, 0));
     if (hp[0] === hp[1]) return [];

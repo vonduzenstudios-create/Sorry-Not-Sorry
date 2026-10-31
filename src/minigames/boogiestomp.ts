@@ -361,6 +361,10 @@ class BoogieStomp extends Minigame {
     if (ball) ball.rotation.y += dt * 1.2;
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.score as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => p.data.score as number, 0);
   }

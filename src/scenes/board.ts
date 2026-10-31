@@ -18,7 +18,7 @@ import type { Controller } from '../input/input';
 import { MINIGAMES } from '../minigames';
 import { makeMinigamePlayers } from '../minigames/players';
 import { MinigameRunner } from '../minigames/runner';
-import type { MinigameDef, MinigameKind, MinigameMode, MinigamePlayer } from '../minigames/types';
+import type { MinigameDef, MinigameKind, MinigameMode, MinigamePlayer, MinigameResult } from '../minigames/types';
 import { addLights, skyDome } from '../render/environment';
 import { Palette } from '../render/palette';
 import { makeStar } from '../render/props';
@@ -78,6 +78,8 @@ export class BoardScene implements Scene {
   private hud!: Hud;
   private players: BoardPlayer[] = [];
   private active = -1;
+  /** Seats in the order they take their turns; reset by each round's minigame. */
+  private turnOrder: number[] = [];
   private turn = 1;
   private dice = new DiceBlock();
   private star!: THREE.Mesh;
@@ -165,8 +167,9 @@ export class BoardScene implements Scene {
     for (this.turn = 1; this.turn <= turns; this.turn++) {
       this.hud.setTurn(this.turn, turns);
       if (turns >= 10 && this.turn === turns - 4) await this.lastFiveEvent();
-      for (let i = 0; i < this.players.length; i++) {
-        await this.checkpoint(`turn${this.turn}-p${i}`);
+      if (this.turnOrder.length !== this.players.length) this.turnOrder = this.players.map((_, i) => i);
+      for (const [n, i] of [...this.turnOrder].entries()) {
+        await this.checkpoint(`turn${this.turn}-p${n}`);
         this.active = i;
         this.refreshHud();
         await this.playerTurn(this.players[i]);
@@ -724,7 +727,7 @@ export class BoardScene implements Scene {
     const options = MINIGAMES.filter((m) => m.duel);
     const def = this.game.rng.pick(options);
     const teams = this.players.map((_, i) => (i === seats[0] ? 0 : 1));
-    const winners = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, teams, seats), 'duel');
+    const { winners } = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, teams, seats), 'duel');
 
     if (winners.length === 1) {
       const winner = this.players[winners[0]];
@@ -764,7 +767,7 @@ export class BoardScene implements Scene {
       return;
     }
     const def = this.pickMinigame('ffa');
-    const winners = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, [0, 1, 2, 3]), 'battle');
+    const { winners } = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, [0, 1, 2, 3]), 'battle');
     if (winners.length === 0) {
       await this.say(`No winner... the Grudge pockets all ${pot} coins!`, 'The Grudge', 1.6);
       return;
@@ -808,16 +811,16 @@ export class BoardScene implements Scene {
   }
 
   /** Plays a minigame and returns to the board view and music. */
-  private async playMinigame(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode): Promise<number[]> {
+  private async playMinigame(def: MinigameDef, players: MinigamePlayer[], mode: MinigameMode): Promise<MinigameResult> {
     this.game.audio.stopSong();
-    const winners = await this.runner.run(def, players, mode);
+    const result = await this.runner.run(def, players, mode);
     this.game.renderer.setView(this.scene, this.camera);
     this.game.audio.playSong(this.board.song);
     for (const p of this.players) {
       p.character.pose = 'idle';
       p.character.setExpression('neutral');
     }
-    return winners;
+    return result;
   }
 
   private async minigame(): Promise<void> {
@@ -834,7 +837,7 @@ export class BoardScene implements Scene {
     const def = this.pickMinigame(kind);
     const played = await this.playMinigame(def, makeMinigamePlayers(this.game.session.seats, teams), 'round');
     // Online, the host's result is the one that counts.
-    const winners = await this.sync(`turn${this.turn}-winners`, played);
+    const { winners, placement } = await this.sync(`turn${this.turn}-winners`, played);
     this.roundColors = [];
 
     for (const seat of winners) {
@@ -846,10 +849,22 @@ export class BoardScene implements Scene {
     if (winners.length) {
       await this.say(`${this.names(winners)} win${winners.length === 1 ? 's' : ''} 10 coins!`, undefined, 1.6);
     }
+    await this.reorderTurns(placement);
     for (const p of this.players) {
       p.character.pose = 'idle';
       p.character.setExpression('neutral');
     }
+  }
+
+  /** Minigame places set the next turn order: 1st goes first. Ties keep their old order. */
+  private async reorderTurns(placement: number[][]): Promise<void> {
+    if (this.turn >= this.game.session.turns) return;
+    const old = this.turnOrder.length === this.players.length ? this.turnOrder : this.players.map((_, i) => i);
+    const order = placement.flatMap((group) => [...group].sort((a, b) => old.indexOf(a) - old.indexOf(b)));
+    for (const seat of old) if (!order.includes(seat)) order.push(seat);
+    const changed = order.some((s, i) => s !== old[i]);
+    this.turnOrder = order;
+    if (changed) await this.say(`New turn order: ${order.map((s) => this.players[s].character.def.name).join(', ')}.`, undefined, 1.8);
   }
 
   private async results(): Promise<void> {

@@ -201,6 +201,10 @@ class CannonVolley extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.left(p.team);
+  }
+
   timeout(): number[] {
     const a = this.left(0);
     const b = this.left(1);

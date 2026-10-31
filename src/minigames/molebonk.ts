@@ -354,6 +354,10 @@ class MoleBonk extends Minigame {
     }
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return p.data.score as number;
+  }
+
   timeout(): number[] {
     return topScorers(this.players, (p) => p.data.score as number, 0);
   }

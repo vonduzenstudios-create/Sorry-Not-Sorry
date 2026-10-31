@@ -361,6 +361,10 @@ class TankTangle extends Minigame {
     for (const t of this.tanks) t.hull.visible = t.flash <= 0 || Math.floor(t.flash * 20) % 2 === 0;
   }
 
+  protected standing(p: MinigamePlayer): number | number[] {
+    return this.tanks.find((t) => t.driver === p || t.gunner === p)!.hp;
+  }
+
   timeout(): number[] {
     const [a, b] = this.tanks;
     if (a.hp === b.hp) return [];
