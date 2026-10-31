@@ -1,4 +1,5 @@
 import { beamHop } from './beamhop';
+import { balloonBounce } from './balloonbounce';
 import { beamMeUp } from './beammeup';
 import { bombDrop } from './bombdrop';
 import { boogieStomp } from './boogiestomp';
@@ -14,6 +15,7 @@ import { hexHop } from './hexhop';
 import { hoopTroop } from './hooptroop';
 import { hotFuse } from './hotfuse';
 import { memoryMatch } from './memorymatch';
+import { jumpRopeJam } from './jumprope';
 import { paintPanic } from './paintpanic';
 import { parrotSays } from './parrotsays';
 import { peekabooPanic } from './peekaboo';
@@ -47,6 +49,8 @@ export const MINIGAMES: MinigameDef[] = [
   crateClimb,
   spikeRoller,
   memoryMatch,
+  jumpRopeJam,
+  balloonBounce,
   puckRush,
   cannonVolley,
   tugTussle,
