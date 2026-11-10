@@ -7,6 +7,7 @@ import type { Face, FaceOptions } from './face';
 import { GHOST } from './ghost';
 import { ZUZU } from './zuzu';
 import { NIA } from './nia';
+import { JIN } from './jin';
 
 export interface CharacterDef {
   id: string;
@@ -199,4 +200,5 @@ export const ROSTER: CharacterDef[] = [
   ZUZU,
   NIA,
   GHOST,
+  JIN,
 ];
