@@ -4,6 +4,7 @@ import { Palette } from '../render/palette';
 import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
 import type { Face, FaceOptions } from './face';
+import { JIN } from './jin';
 
 export interface CharacterDef {
   id: string;
@@ -193,4 +194,5 @@ export const ROSTER: CharacterDef[] = [
       rig.torso.add(belt);
     },
   },
+  JIN,
 ];
