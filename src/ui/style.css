@@ -291,6 +291,53 @@ body {
   color: #c98a00;
 }
 
+.hud-player .hp {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.hud-player .hp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--green, #5fd39a);
+  transition: width 0.35s ease-out;
+}
+
+.hud-player .hp.low .hp-fill {
+  background: #ffd23f;
+}
+
+.hud-player .hp.crit .hp-fill {
+  background: #ff7a7a;
+}
+
+.hud-player .hp span {
+  position: relative;
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 10px;
+  text-align: center;
+}
+
+.pile-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 0 6px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff6e6;
+  font-size: 12px;
+  font-weight: 900;
+  color: #c98a00;
+  pointer-events: none;
+}
+
 .dialog {
   position: absolute;
   left: 50%;

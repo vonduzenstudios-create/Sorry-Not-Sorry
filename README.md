@@ -40,6 +40,15 @@ You carry one item at a time. Get them from purple **?** spaces or the yellow sh
 | Duel Glove | 10 | Duel a rival for coins in a 1-on-1 minigame |
 | Pickpocket Chest | 15 | Steal a rival's item |
 | Star Lamp | 25 | Warp to the star |
+| Cork Cannon | 5 | Shoot a rival up to 5 spaces away (either direction) for 4 damage |
+| Storm Jar | 10 | Zap any rival on the board for 3 damage |
+| Snap Trap | 5 | Hide a trap on your space; the next rival to step on it takes 5 damage |
+| Quake Drum | 10 | 3 damage to every rival within 3 spaces |
+| Bowling Boulder | 15 | Roll a boulder 10 spaces ahead; 4 damage to every rival in its path |
+
+### Board HP and knockouts
+
+Everyone starts with 10 HP on the board. The last five items above deal damage. A player who drops to 0 HP is knocked out: half their coins (rounded up) spill onto spaces within 2 steps of where they fell, and they respawn at the start with full HP. Any other player who walks past or lands on a spilled pile scoops it up; you can't loot your own coins. Snap Traps and spilled coins trigger on every space you pass, not just where you stop.
 
 Orange **X** spaces start a battle: everyone pays into a pot and the minigame winners split it. In the last 5 turns blue and red spaces count double. At the end, three bonus stars go to the top minigame earner, the richest moment and the most **!** spaces.
 

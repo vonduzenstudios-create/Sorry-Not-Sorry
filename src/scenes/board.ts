@@ -1,6 +1,22 @@
 import * as THREE from 'three';
 import { distance } from '../board/graph';
 import { makeGrudge } from '../board/grudge';
+import {
+  KO_DROP,
+  makeBoulder,
+  makeCork,
+  makePile,
+  makeShockwave,
+  makeStorm,
+  makeTrap,
+  MAX_HP,
+  neighbors,
+  pathAhead,
+  SCATTER_RANGE,
+  within,
+  type CoinPile,
+  type Trap,
+} from '../board/combat';
 import { Hud, rank } from '../board/hud';
 import { DiceBlock } from '../board/dice';
 import { makeGate } from '../board/gate';
@@ -20,8 +36,8 @@ import { makeMinigamePlayers } from '../minigames/players';
 import { MinigameRunner } from '../minigames/runner';
 import type { MinigameDef, MinigameKind, MinigameMode, MinigamePlayer, MinigameResult } from '../minigames/types';
 import { addLights, skyDome } from '../render/environment';
-import { Palette } from '../render/palette';
-import { makeStar } from '../render/props';
+import { css, Palette, PlayerColors } from '../render/palette';
+import { makeCoin, makeStar } from '../render/props';
 import { EndingScene, type FinalPlayer } from './ending';
 
 const STAR_COST = 20;
@@ -37,6 +53,8 @@ export interface BoardPlayer {
   stars: number;
   /** Held item; MP2 rules, one at a time. */
   item: ItemId | null;
+  /** Board health; 0 means knocked out (drop coins, respawn at the start). */
+  hp: number;
   /** Stats for end-of-game bonus stars and the results card. */
   stats: PlayerStats;
 }
@@ -48,7 +66,9 @@ interface BoardSnapshot {
   roundColors: ('blue' | 'red')[];
   lastMinigame: string;
   lastFive: boolean;
-  players: { spaceId: number; coins: number; stars: number; item: ItemId | null; stats: PlayerStats }[];
+  players: { spaceId: number; coins: number; stars: number; item: ItemId | null; hp: number; stats: PlayerStats }[];
+  piles: CoinPile[];
+  traps: Trap[];
 }
 
 export interface PlayerStats {
@@ -96,11 +116,20 @@ export class BoardScene implements Scene {
   /** Last-5-turns event fired: blue and red spaces count double. */
   private lastFive = false;
   private gates = new Map<number, ReturnType<typeof makeGate>>();
+  /** Undirected space graph, for attack ranges and coin scatter. */
+  private adj: number[][] = [];
+  /** Coins spilled by knocked-out players, waiting to be scooped up. */
+  private piles: CoinPile[] = [];
+  private pileViews: { mesh: THREE.Group; remove: () => void }[] = [];
+  /** Snap Traps waiting on spaces. */
+  private traps: Trap[] = [];
+  private trapViews: THREE.Group[] = [];
 
   enter(game: Game): void {
     this.game = game;
     this.board = (BOARDS[game.session.boardId] ?? BOARDS.pirate)();
     this.spaces = this.board.spaces;
+    this.adj = neighbors(this.spaces);
 
     this.scene.add(skyDome(...this.board.sky));
     this.sun = addLights(this.scene);
@@ -129,6 +158,7 @@ export class BoardScene implements Scene {
         coins: START_COINS,
         stars: 0,
         item: null,
+        hp: MAX_HP,
         stats: { minigameCoins: 0, minigamesWon: 0, maxCoins: START_COINS, happenings: 0, itemsUsed: 0 },
       });
     }
@@ -197,6 +227,7 @@ export class BoardScene implements Scene {
     );
     p.character.setExpression('determined');
 
+    let knockedOut = false;
     while (steps > 0) {
       const here = this.spaces[p.spaceId];
       const nextId = here.next.length > 1 ? await this.chooseBranch(p, here) : here.next[0];
@@ -205,11 +236,16 @@ export class BoardScene implements Scene {
       steps--;
       counter.el.textContent = String(steps);
       this.game.audio.play('select');
+      // Spilled coins and traps work on every space you pass, not just where you stop.
+      if (await this.stepOn(p, counter.el)) {
+        knockedOut = true;
+        break;
+      }
       if (nextId === this.starSpace) await this.offerStar(p);
       if (this.spaces[nextId].type === 'shop') await this.shop(p);
     }
     counter.remove();
-    await this.land(p);
+    if (!knockedOut) await this.land(p);
     p.character.pose = 'idle';
     p.character.setExpression('neutral');
     this.spreadPlayers(false);
@@ -525,6 +561,8 @@ export class BoardScene implements Scene {
     const rivals = this.players.filter((o) => o !== p);
     // Items that need a target are only offered when one exists.
     if (p.item === 'chest' && !rivals.some((o) => o.item)) return 1;
+    if (it.attack && p.item !== 'trap' && !this.attackTargets(p, p.item).length) return 1;
+    if (p.item === 'trap' && this.traps.some((t) => t.spaceId === p.spaceId)) return 1;
 
     let use: boolean;
     if (p.seat.controller) {
@@ -560,6 +598,21 @@ export class BoardScene implements Scene {
         await this.warp(p, this.starSpace);
         await this.offerStar(p);
         break;
+      case 'cork':
+        await this.corkCannon(p);
+        break;
+      case 'storm':
+        await this.stormJar(p);
+        break;
+      case 'trap':
+        await this.setTrap(p);
+        break;
+      case 'quake':
+        await this.quakeDrum(p);
+        break;
+      case 'boulder':
+        await this.bowlingBoulder(p);
+        break;
     }
     this.focus(p.character.position);
     return 1;
@@ -579,6 +632,13 @@ export class BoardScene implements Scene {
         return rivals.some((o) => o.item);
       case 'lamp':
         return p.coins >= STAR_COST;
+      case 'trap':
+        return true;
+      case 'cork':
+      case 'storm':
+      case 'quake':
+      case 'boulder':
+        return this.attackTargets(p, p.item).length > 0;
       default:
         return false;
     }
@@ -743,6 +803,339 @@ export class BoardScene implements Scene {
     } else {
       await this.say("It's a draw! Everyone keeps their coins.", undefined, 1.4);
     }
+  }
+
+
+  // ---------------------------------------------------------------- combat
+
+  /** Rivals an attack item can hit right now, in seat order. */
+  private attackTargets(p: BoardPlayer, id: ItemId): BoardPlayer[] {
+    const rivals = this.players.filter((o) => o !== p);
+    switch (id) {
+      case 'cork': {
+        const near = within(this.adj, p.spaceId, 5);
+        return rivals.filter((o) => near.has(o.spaceId));
+      }
+      case 'quake': {
+        const near = within(this.adj, p.spaceId, 3);
+        return rivals.filter((o) => near.has(o.spaceId));
+      }
+      case 'boulder': {
+        const path = pathAhead(this.spaces, p.spaceId, 10);
+        return rivals.filter((o) => path.includes(o.spaceId));
+      }
+      case 'storm':
+        return rivals;
+      default:
+        return [];
+    }
+  }
+
+  /** Humans choose; CPUs go for whoever is closest to a knockout, then the richest. */
+  private async pickTarget(p: BoardPlayer, targets: BoardPlayer[], prompt: string): Promise<BoardPlayer> {
+    if (targets.length === 1) return targets[0];
+    const cpu = targets.reduce((best, o, i) => {
+      const b = targets[best];
+      return o.hp < b.hp || (o.hp === b.hp && o.coins > b.coins) ? i : best;
+    }, 0);
+    return targets[await this.ask(p, prompt, targets.map((t) => `${t.character.def.name} ♥${t.hp}`), cpu)];
+  }
+
+  /** Cork Cannon: an arcing shot at one rival within 5 spaces. */
+  private async corkCannon(p: BoardPlayer): Promise<void> {
+    const foe = await this.pickTarget(p, this.attackTargets(p, 'cork'), 'Who will you blast?');
+    const ch = p.character;
+    ch.rotation.y = Math.atan2(foe.character.position.x - ch.position.x, foe.character.position.z - ch.position.z);
+    const cork = makeCork();
+    const from = ch.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+    const to = foe.character.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+    const height = 2 + from.distanceTo(to) * 0.25;
+    this.scene.add(cork);
+    this.game.audio.play('pop');
+    await this.tasks.tween(
+      0.8,
+      (k) => {
+        cork.position.lerpVectors(from, to, k);
+        cork.position.y += Math.sin(k * Math.PI) * height;
+        cork.rotation.x = k * Math.PI * 6;
+        this.focus(cork.position);
+      },
+      linear,
+    );
+    this.scene.remove(cork);
+    await this.hurt(foe, 4);
+  }
+
+  /** Storm Jar: a thundercloud finds any rival on the board. */
+  private async stormJar(p: BoardPlayer): Promise<void> {
+    const foe = await this.pickTarget(p, this.attackTargets(p, 'storm'), 'Who gets the storm?');
+    const storm = makeStorm();
+    storm.position.copy(foe.character.position).setY(foe.character.position.y + 5);
+    storm.scale.setScalar(0.01);
+    this.scene.add(storm);
+    this.focus(foe.character.position);
+    await this.tasks.tween(0.5, (k) => storm.scale.setScalar(Math.max(0.01, k)), easeOutBack);
+    foe.character.setExpression('surprised');
+    await this.tasks.sleep(0.5);
+    for (let i = 0; i < 2; i++) {
+      storm.bolt.visible = true;
+      this.game.audio.play('boom');
+      await this.tasks.sleep(0.12);
+      storm.bolt.visible = false;
+      await this.tasks.sleep(0.08);
+    }
+    storm.bolt.visible = true;
+    const hit = this.hurt(foe, 3);
+    await this.tasks.sleep(0.3);
+    storm.bolt.visible = false;
+    void this.tasks.tween(0.4, (k) => storm.scale.setScalar(Math.max(0.01, 1 - k))).then(() => this.scene.remove(storm));
+    await hit;
+  }
+
+  /** Snap Trap: hidden on the user's own space until a rival steps on it. */
+  private async setTrap(p: BoardPlayer): Promise<void> {
+    this.traps.push({ spaceId: p.spaceId, owner: this.players.indexOf(p) });
+    this.renderTraps();
+    const view = this.trapViews[this.trapViews.length - 1];
+    view.scale.setScalar(0.01);
+    this.focus(p.character.position);
+    this.game.audio.play('pop');
+    await this.tasks.tween(0.35, (k) => view.scale.setScalar(Math.max(0.01, k)), easeOutBack);
+    await this.say(`${p.character.def.name} hides a Snap Trap here. Watch your step!`, undefined, 1.4);
+  }
+
+  /** Quake Drum: a shockwave that hits every rival within 3 spaces. */
+  private async quakeDrum(p: BoardPlayer): Promise<void> {
+    const victims = this.attackTargets(p, 'quake');
+    const ch = p.character;
+    const base = ch.position.y;
+    this.focus(ch.position);
+    this.zoomTarget = 1.5;
+    ch.pose = 'jump';
+    this.game.audio.play('jump');
+    await this.tasks.tween(0.3, (k) => (ch.position.y = base + Math.sin(k * Math.PI) * 1.8), linear);
+    ch.position.y = base;
+    ch.land();
+    ch.pose = 'idle';
+    this.game.audio.play('boom');
+    const ring = makeShockwave();
+    ring.position.copy(ch.position).setY(0.3);
+    this.scene.add(ring);
+    const mat = ring.material as THREE.MeshBasicMaterial;
+    await this.tasks.tween(
+      0.7,
+      (k) => {
+        ring.scale.setScalar(1 + k * 11);
+        mat.opacity = 0.85 * (1 - k);
+      },
+      easeOut,
+    );
+    this.scene.remove(ring);
+    for (const v of victims) {
+      this.focus(v.character.position);
+      await this.hurt(v, 3);
+    }
+    this.zoomTarget = 1;
+  }
+
+  /** Bowling Boulder: rolls 10 spaces down the path, flattening rivals as it goes. */
+  private async bowlingBoulder(p: BoardPlayer): Promise<void> {
+    const path = pathAhead(this.spaces, p.spaceId, 10);
+    const rock = makeBoulder();
+    const startPos = this.spaces[p.spaceId].pos.clone().setY(SPACE_TOP + 0.9);
+    rock.position.copy(startPos).setY(startPos.y + 6);
+    this.scene.add(rock);
+    this.focus(startPos);
+    this.game.audio.play('boom');
+    await this.tasks.tween(0.4, (k) => rock.position.lerpVectors(startPos.clone().setY(startPos.y + 6), startPos, k), easeOut);
+    const hit = new Set<BoardPlayer>();
+    for (const id of path) {
+      const from = rock.position.clone();
+      const to = this.spaces[id].pos.clone().setY(SPACE_TOP + 0.9);
+      const dir = to.clone().sub(from);
+      const axis = new THREE.Vector3(dir.z, 0, -dir.x).normalize();
+      const spin = dir.length() / 0.9;
+      await this.tasks.tween(
+        0.22,
+        (k) => {
+          rock.position.lerpVectors(from, to, k);
+          this.focus(rock.position);
+        },
+        linear,
+      );
+      rock.rotateOnWorldAxis(axis, spin);
+      this.game.audio.play('dice');
+      for (const o of this.players) {
+        if (o === p || hit.has(o) || o.spaceId !== id) continue;
+        hit.add(o);
+        await this.hurt(o, 4);
+      }
+    }
+    await this.tasks.tween(0.3, (k) => rock.scale.setScalar(Math.max(0.01, 1 - k)));
+    this.scene.remove(rock);
+  }
+
+  /** Deals board damage. Resolves true if it knocked the player out. */
+  private async hurt(v: BoardPlayer, dmg: number): Promise<boolean> {
+    const ch = v.character;
+    v.hp = Math.max(0, v.hp - dmg);
+    this.refreshHud();
+    this.hud.popup(`-${dmg} ♥`, ch.position.clone().add(new THREE.Vector3(0, 2.4, 0)), false);
+    this.game.audio.play('boom');
+    ch.pose = 'sulk';
+    ch.setExpression('sad');
+    const base = ch.position.y;
+    await this.tasks.tween(
+      0.45,
+      (k) => {
+        ch.position.y = base + Math.sin(k * Math.PI) * 0.7;
+        ch.rotation.z = Math.sin(k * Math.PI * 3) * 0.35 * (1 - k);
+      },
+      linear,
+    );
+    ch.position.y = base;
+    ch.rotation.z = 0;
+    await this.tasks.sleep(0.35);
+    if (v.hp > 0) {
+      ch.pose = 'idle';
+      ch.setExpression('neutral');
+      return false;
+    }
+    await this.knockOut(v);
+    return true;
+  }
+
+  /** Out of health: spill coins around this spot, then respawn at the start with full HP. */
+  private async knockOut(p: BoardPlayer): Promise<void> {
+    const ch = p.character;
+    const name = ch.def.name;
+    this.focus(ch.position);
+    this.hud.banner('K.O.!', 1600);
+    this.game.audio.play('back');
+    await this.tasks.tween(0.4, (k) => (ch.rotation.z = (k * Math.PI) / 2), easeOut);
+    const drop = Math.ceil(p.coins * KO_DROP);
+    await this.say(`${name} is knocked out!`, undefined, 1.2);
+    if (drop > 0) {
+      p.coins -= drop;
+      this.refreshHud();
+      await this.scatterCoins(p, drop);
+      await this.say(`${drop} coin${drop === 1 ? '' : 's'} spill across the board! Anyone else can grab them by walking past.`, undefined, 2);
+    }
+    await this.tasks.tween(0.25, (k) => (ch.rotation.z = ((1 - k) * Math.PI) / 2));
+    ch.rotation.z = 0;
+    await this.warp(p, this.board.startId);
+    p.hp = MAX_HP;
+    this.refreshHud();
+    this.hud.popup(`♥ ${MAX_HP}`, ch.position.clone().add(new THREE.Vector3(0, 2.4, 0)), true);
+    await this.say(`${name} is back at the start with full health.`, undefined, 1.4);
+    ch.pose = 'idle';
+    ch.setExpression('neutral');
+  }
+
+  /** Splits `amount` into piles on random spaces near the player and flings coins to them. */
+  private async scatterCoins(p: BoardPlayer, amount: number): Promise<void> {
+    const near = [...within(this.adj, p.spaceId, SCATTER_RANGE).keys()];
+    for (let i = near.length - 1; i > 0; i--) {
+      const j = this.game.rng.int(0, i);
+      [near[i], near[j]] = [near[j], near[i]];
+    }
+    const n = Math.min(near.length, Math.max(1, Math.ceil(amount / 3)));
+    const owner = this.players.indexOf(p);
+    const from = p.character.position.clone().add(new THREE.Vector3(0, 1, 0));
+    this.focus(from);
+    this.zoomTarget = 1.4;
+    this.game.audio.play('coin');
+    await Promise.all(
+      near.slice(0, n).map(async (spaceId, i) => {
+        const share = Math.floor(amount / n) + (i < amount % n ? 1 : 0);
+        const coin = makeCoin(0.3);
+        const to = this.spaces[spaceId].pos.clone().setY(SPACE_TOP + 0.2);
+        this.scene.add(coin);
+        await this.tasks.tween(
+          0.8,
+          (k) => {
+            coin.position.lerpVectors(from, to, k);
+            coin.position.y += Math.sin(k * Math.PI) * 3;
+            coin.rotation.y = k * Math.PI * 6;
+          },
+          linear,
+        );
+        this.scene.remove(coin);
+        const pile = this.piles.find((o) => o.spaceId === spaceId && o.owner === owner);
+        if (pile) pile.amount += share;
+        else this.piles.push({ spaceId, owner, amount: share });
+        this.renderPiles();
+      }),
+    );
+    this.zoomTarget = 1;
+  }
+
+  /** Passing a space: scoop up rivals' spilled coins, then spring any rival's trap. True if knocked out. */
+  private async stepOn(p: BoardPlayer, counter: HTMLElement): Promise<boolean> {
+    const seat = this.players.indexOf(p);
+    const loot = this.piles.filter((o) => o.spaceId === p.spaceId && o.owner !== seat);
+    if (loot.length) {
+      const total = loot.reduce((n, o) => n + o.amount, 0);
+      this.piles = this.piles.filter((o) => !loot.includes(o));
+      this.renderPiles();
+      await this.changeCoins(p, total);
+      p.character.pose = 'walk';
+    }
+    const trap = this.traps.find((t) => t.spaceId === p.spaceId && t.owner !== seat);
+    if (!trap) return false;
+    this.traps = this.traps.filter((t) => t !== trap);
+    this.renderTraps();
+    counter.style.visibility = 'hidden';
+    const jaws = makeTrap(PlayerColors[trap.owner % PlayerColors.length]);
+    jaws.position.copy(this.spaces[p.spaceId].pos).setY(SPACE_TOP);
+    this.scene.add(jaws);
+    this.game.audio.play('pop');
+    await this.tasks.tween(0.25, (k) => jaws.scale.set(1 + k * 0.4, 1 + Math.sin(k * Math.PI) * 2, 1 + k * 0.4), easeOut);
+    this.scene.remove(jaws);
+    p.character.setExpression('surprised');
+    await this.say(`SNAP! ${p.character.def.name} stepped on ${this.players[trap.owner].character.def.name}'s Snap Trap!`, undefined, 1.2);
+    const out = await this.hurt(p, 5);
+    counter.style.visibility = '';
+    p.character.pose = 'walk';
+    return out;
+  }
+
+  private renderPiles(): void {
+    for (const v of this.pileViews) v.remove();
+    this.pileViews = this.piles.map((pile) => {
+      const others = this.piles.filter((o) => o.spaceId === pile.spaceId);
+      const slot = others.indexOf(pile);
+      const mesh = makePile(pile.amount);
+      const angle = slot * 2.1 + 0.6;
+      mesh.position.copy(this.spaces[pile.spaceId].pos).setY(SPACE_TOP);
+      mesh.position.x += Math.cos(angle) * 0.75;
+      mesh.position.z += Math.sin(angle) * 0.75;
+      this.scene.add(mesh);
+      const color = css(PlayerColors[pile.owner % PlayerColors.length]);
+      const at = mesh.position.clone().add(new THREE.Vector3(0, 0.9, 0));
+      const label = this.hud.label('pile-label', `● ${pile.amount}`, () => at);
+      label.el.style.borderColor = color;
+      label.el.title = `${this.players[pile.owner].character.def.name}'s spilled coins`;
+      return {
+        mesh,
+        remove: () => {
+          this.scene.remove(mesh);
+          label.remove();
+        },
+      };
+    });
+  }
+
+  private renderTraps(): void {
+    for (const v of this.trapViews) this.scene.remove(v);
+    this.trapViews = this.traps.map((t) => {
+      const mesh = makeTrap(PlayerColors[t.owner % PlayerColors.length]);
+      mesh.position.copy(this.spaces[t.spaceId].pos).setY(SPACE_TOP);
+      mesh.position.x -= 0.6;
+      mesh.scale.setScalar(0.7);
+      this.scene.add(mesh);
+      return mesh;
+    });
   }
 
   // ---------------------------------------------------------------- events
@@ -912,7 +1305,9 @@ export class BoardScene implements Scene {
       roundColors: [...this.roundColors],
       lastMinigame: this.lastMinigame,
       lastFive: this.lastFive,
-      players: this.players.map((p) => ({ spaceId: p.spaceId, coins: p.coins, stars: p.stars, item: p.item, stats: { ...p.stats } })),
+      players: this.players.map((p) => ({ spaceId: p.spaceId, coins: p.coins, stars: p.stars, item: p.item, hp: p.hp, stats: { ...p.stats } })),
+      piles: this.piles.map((o) => ({ ...o })),
+      traps: this.traps.map((t) => ({ ...t })),
     };
   }
 
@@ -930,15 +1325,24 @@ export class BoardScene implements Scene {
     s.players.forEach((d, i) => {
       const p = this.players[i];
       moved ||= p.spaceId !== d.spaceId;
-      Object.assign(p, { spaceId: d.spaceId, coins: d.coins, stars: d.stars, item: d.item, stats: { ...d.stats } });
+      Object.assign(p, { spaceId: d.spaceId, coins: d.coins, stars: d.stars, item: d.item, hp: d.hp, stats: { ...d.stats } });
     });
+    if (JSON.stringify(s.piles) !== JSON.stringify(this.piles)) {
+      this.piles = s.piles.map((o) => ({ ...o }));
+      this.renderPiles();
+    }
+    if (JSON.stringify(s.traps) !== JSON.stringify(this.traps)) {
+      this.traps = s.traps.map((t) => ({ ...t }));
+      this.renderTraps();
+    }
     if (moved) this.spreadPlayers(true);
     this.refreshHud();
   }
 
   digest(): number {
     let h = this.turn * 31 + this.active + this.starSpace * 7 + (this.runner?.active ? 1000 : 0);
-    for (const p of this.players) h = Math.imul(h, 16777619) ^ (p.spaceId * 997 + p.coins * 31 + p.stars);
+    for (const p of this.players) h = Math.imul(h, 16777619) ^ (p.spaceId * 997 + p.coins * 31 + p.stars + p.hp * 7919);
+    h = Math.imul(h, 16777619) ^ (this.piles.length * 131 + this.traps.length);
     return h >>> 0;
   }
 
@@ -1031,7 +1435,7 @@ export class BoardScene implements Scene {
 
   private refreshHud(): void {
     this.hud.setPlayers(
-      this.players.map((p) => ({ character: p.character, coins: p.coins, stars: p.stars, cpu: !p.seat.controller, item: p.item })),
+      this.players.map((p) => ({ character: p.character, coins: p.coins, stars: p.stars, cpu: !p.seat.controller, item: p.item, hp: p.hp, maxHp: MAX_HP })),
       this.active,
     );
   }
@@ -1064,6 +1468,7 @@ export class BoardScene implements Scene {
     if (this.star.visible) {
       this.star.rotation.y = this.t * 2;
     }
+    for (const v of this.pileViews) v.mesh.rotation.y = this.t * 1.5;
 
     // Smooth follow camera.
     this.camFocus.lerp(this.camTarget, Math.min(1, dt * 3));

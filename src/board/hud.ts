@@ -10,6 +10,9 @@ export interface HudPlayer {
   stars: number;
   cpu: boolean;
   item: ItemId | null;
+  /** Board health; shown as a bar when set. */
+  hp?: number;
+  maxHp?: number;
 }
 
 /** Board-game overlay: player panels, turn counter, dialog box, floating labels. */
@@ -60,7 +63,7 @@ export class Hud {
       el.innerHTML = `
         <div class="rank">${ordinal(ranks[i])}</div>
         <div class="who"><div class="name">${p.character.def.name}${p.cpu ? ' <span class="cpu">CPU</span>' : ''}</div>
-        <div class="stats"><span class="star">★ ${p.stars}</span><span class="coin">● ${p.coins}</span>${p.item ? itemChip(p.item) : ''}</div></div>`;
+        <div class="stats"><span class="star">★ ${p.stars}</span><span class="coin">● ${p.coins}</span>${p.item ? itemChip(p.item) : ''}</div>${hpBar(p)}</div>`;
     });
   }
 
@@ -117,6 +120,13 @@ export class Hud {
     l.el.style.top = `${((1 - p.y) / 2) * window.innerHeight}px`;
     l.el.style.display = p.z > 1 ? 'none' : '';
   }
+}
+
+function hpBar(p: HudPlayer): string {
+  if (p.hp === undefined || !p.maxHp) return '';
+  const k = Math.max(0, Math.min(1, p.hp / p.maxHp));
+  const tone = k > 0.5 ? 'ok' : k > 0.25 ? 'low' : 'crit';
+  return `<div class="hp ${tone}" title="Health"><div class="hp-fill" style="width:${Math.round(k * 100)}%"></div><span>♥ ${p.hp}/${p.maxHp}</span></div>`;
 }
 
 /** 1-based rank by stars, then coins; ties share a rank. */
