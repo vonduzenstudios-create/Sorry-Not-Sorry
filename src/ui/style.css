@@ -187,6 +187,14 @@ body {
 .names.compact {
   bottom: 48px;
   gap: 8px;
+  /* Flex so a short last row centers under its characters. */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.names.compact .name-card {
+  flex: 0 0 calc((100% - 24px) / 4);
 }
 
 .names.compact .name-card {
