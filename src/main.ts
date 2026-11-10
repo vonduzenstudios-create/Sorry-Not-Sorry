@@ -1,6 +1,6 @@
 import './ui/style.css';
 import { Game } from './core/game';
-import { ROSTER } from './characters/roster';
+import { MAX_SEATS, ROSTER } from './characters/roster';
 import { BoardScene } from './scenes/board';
 import { EndingScene } from './scenes/ending';
 import { LobbyScene } from './scenes/lobby';
@@ -20,14 +20,14 @@ const game = new Game(canvas, ui);
 const params = new URLSearchParams(location.search);
 const debug = params.get('debug');
 if (debug === 'board') {
-  game.session.seats = ROSTER.map((d) => ({ characterId: d.id, controller: null }));
+  game.session.seats = ROSTER.slice(0, MAX_SEATS).map((d) => ({ characterId: d.id, controller: null }));
   game.session.turns = Number(params.get('turns')) || game.session.turns;
   game.session.boardId = params.get('board') ?? game.session.boardId;
   game.scenes.go(new BoardScene());
 } else if (debug === 'ending') {
   game.scenes.go(
     new EndingScene(
-      ROSTER.map((d, i) => ({
+      ROSTER.slice(0, MAX_SEATS).map((d, i) => ({
         characterId: d.id,
         cpu: true,
         stars: [2, 3, 1, 2][i],

@@ -47,8 +47,10 @@ export class TitleScene implements Scene {
 
     ROSTER.forEach((def, i) => {
       const c = new Character(def);
-      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      c.position.set(Math.cos(a) * 3.2, 0, Math.sin(a) * 3.2);
+      const n = ROSTER.length;
+      const a = (i / n) * Math.PI * 2 + Math.PI / n;
+      const radius = Math.max(3.2, n * 0.62);
+      c.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius);
       // Face outward so the orbiting camera sees their faces.
       c.lookAt(c.position.x * 2, 0, c.position.z * 2);
       this.scene.add(c);

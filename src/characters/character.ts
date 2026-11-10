@@ -16,6 +16,8 @@ export interface Rig {
   armR: THREE.Group;
   legL: THREE.Group;
   legR: THREE.Group;
+  /** Extra per-frame animation for custom bodies, run after the stock pose. */
+  tick?: (dt: number, character: Character) => void;
 }
 
 const HIP_Y = 0.55;
@@ -41,7 +43,7 @@ export class Character extends THREE.Group {
     this.def = def;
     this.name = def.name;
     this.face = new Face(def.face);
-    this.rig = def.robot ? this.buildRobot() : this.buildHuman();
+    this.rig = def.build ? def.build(def, this.face) : def.robot ? this.buildRobot() : this.buildHuman();
     def.decorate?.(this.rig, def);
     this.add(this.rig.body);
   }
@@ -256,5 +258,6 @@ export class Character extends THREE.Group {
     lerp(r.armR, 'x', -armSwing);
     lerp(r.legL, 'x', legSwing);
     lerp(r.legR, 'x', this.pose === 'jump' ? -0.2 : -legSwing);
+    r.tick?.(dt, this);
   }
 }

@@ -179,6 +179,30 @@ body {
   opacity: 0.75;
 }
 
+.prompt.high {
+  bottom: auto;
+  top: 17vh;
+}
+
+.names.compact {
+  bottom: 48px;
+  gap: 8px;
+  /* Flex so a short last row centers under its characters. */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.names.compact .name-card {
+  flex: 0 0 calc((100% - 24px) / 4);
+}
+
+.names.compact .name-card {
+  font-size: clamp(10px, 1.2vw, 13px);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .name-card.taken {
   transform: translateY(-6px);
   background: #ffffff;

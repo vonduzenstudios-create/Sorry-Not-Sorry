@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { Palette } from '../render/palette';
 import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
-import type { FaceOptions } from './face';
+import type { Face, FaceOptions } from './face';
 
 export interface CharacterDef {
   id: string;
@@ -19,8 +19,17 @@ export interface CharacterDef {
     shoes: number;
   };
   face: FaceOptions;
+  /**
+   * Builds a custom body instead of the stock human/robot one, for characters
+   * with a different shape. Return every Rig slot (empty groups are fine for
+   * parts the body lacks) so poses and minigame props still have anchors.
+   */
+  build?: (def: CharacterDef, face: Face) => Rig;
   decorate?: (rig: Rig, def: CharacterDef) => void;
 }
+
+/** Most players in one game; the roster can be larger than this. */
+export const MAX_SEATS = 4;
 
 const HEAD_Y = 0.38;
 const HEAD_R = 0.42;
