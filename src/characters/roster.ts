@@ -5,6 +5,8 @@ import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
 import type { Face, FaceOptions } from './face';
 import { GHOST } from './ghost';
+import { ZUZU } from './zuzu';
+import { NIA } from './nia';
 
 export interface CharacterDef {
   id: string;
@@ -194,5 +196,7 @@ export const ROSTER: CharacterDef[] = [
       rig.torso.add(belt);
     },
   },
+  ZUZU,
+  NIA,
   GHOST,
 ];

@@ -11,7 +11,7 @@ import type { CharacterDef } from './roster';
  */
 
 const SHEET = 0xf6f3ff;
-const AQUA = 0x6fd6e8;
+const PINK = 0xff8cc6;
 const HIP_Y = 0.55;
 const R = 0.52;
 const HOVER = 0.14;
@@ -255,7 +255,7 @@ export const GHOST: CharacterDef = {
   name: 'Wisp',
   tagline: 'Boo! ...sorry, was that too much?',
   colors: {
-    accent: AQUA,
+    accent: PINK,
     skin: SHEET,
     top: SHEET,
     bottom: SHEET,
