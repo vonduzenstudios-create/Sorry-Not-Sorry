@@ -1,4 +1,17 @@
-export type ItemId = 'turbo' | 'gold' | 'key' | 'swap' | 'glove' | 'chest' | 'lamp';
+export type ItemId =
+  | 'turbo'
+  | 'gold'
+  | 'key'
+  | 'swap'
+  | 'glove'
+  | 'chest'
+  | 'lamp'
+  // Attack items: they hurt rivals' board HP.
+  | 'cork'
+  | 'storm'
+  | 'trap'
+  | 'quake'
+  | 'boulder';
 
 export interface ItemDef {
   id: ItemId;
@@ -9,6 +22,8 @@ export interface ItemDef {
   weight: number;
   /** Used automatically (the key opens gates) instead of before a roll. */
   passive?: boolean;
+  /** Damages rivals' board HP. */
+  attack?: boolean;
   /** Single glyph for the HUD chip. */
   glyph: string;
   color: string;
@@ -23,6 +38,11 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   glove: { id: 'glove', name: 'Duel Glove', price: 10, weight: 3, glyph: 'VS', color: '#ffa65c', description: 'Challenge a rival to a duel for coins.' },
   chest: { id: 'chest', name: 'Pickpocket Chest', price: 15, weight: 2, glyph: '$', color: '#a98bff', description: "Steal a rival's item." },
   lamp: { id: 'lamp', name: 'Star Lamp', price: 25, weight: 1, glyph: '★', color: '#fff0a8', description: 'Warp straight to the star.' },
+  cork: { id: 'cork', name: 'Cork Cannon', price: 5, weight: 4, attack: true, glyph: '➶', color: '#ffb0cf', description: 'Pop a rival up to 5 spaces away for 4 damage.' },
+  storm: { id: 'storm', name: 'Storm Jar', price: 10, weight: 3, attack: true, glyph: 'ϟ', color: '#a9dcff', description: 'Zap any rival on the board for 3 damage.' },
+  trap: { id: 'trap', name: 'Snap Trap', price: 5, weight: 3, attack: true, glyph: '✲', color: '#cfcfdc', description: 'Set a trap on your space. The next rival to step on it takes 5 damage.' },
+  quake: { id: 'quake', name: 'Quake Drum', price: 10, weight: 3, attack: true, glyph: '≋', color: '#ffc27a', description: 'Pound the ground: 3 damage to every rival within 3 spaces.' },
+  boulder: { id: 'boulder', name: 'Bowling Boulder', price: 15, weight: 2, attack: true, glyph: '◍', color: '#d2bc9c', description: 'Roll a boulder 10 spaces ahead: 4 damage to every rival in its path.' },
 };
 
 export const ITEM_IDS = Object.keys(ITEMS) as ItemId[];
