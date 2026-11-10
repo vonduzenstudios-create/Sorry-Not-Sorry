@@ -11,6 +11,8 @@ export interface FaceOptions {
   lashes?: boolean;
   /** Robot screen background. */
   screen?: string;
+  /** Paints a custom face instead of the stock style (canvas is 256x256). */
+  draw?: (g: CanvasRenderingContext2D, expression: Expression, blinking: boolean) => void;
 }
 
 const SIZE = 256;
@@ -61,7 +63,8 @@ export class Face {
   private draw(): void {
     const g = this.ctx;
     g.clearRect(0, 0, SIZE, SIZE);
-    if (this.opts.style === 'robot') this.drawRobot(g);
+    if (this.opts.draw) this.opts.draw(g, this.expression, this.blinking);
+    else if (this.opts.style === 'robot') this.drawRobot(g);
     else this.drawHuman(g);
     this.texture.needsUpdate = true;
   }

@@ -179,6 +179,22 @@ body {
   opacity: 0.75;
 }
 
+.prompt.high {
+  bottom: auto;
+  top: 17vh;
+}
+
+.names.compact {
+  bottom: 48px;
+  gap: 8px;
+}
+
+.names.compact .name-card {
+  font-size: clamp(10px, 1.2vw, 13px);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .name-card.taken {
   transform: translateY(-6px);
   background: #ffffff;

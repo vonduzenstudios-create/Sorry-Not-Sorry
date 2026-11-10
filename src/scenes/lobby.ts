@@ -48,7 +48,7 @@ export class LobbyScene implements Scene {
     this.scene.add(island);
     ROSTER.forEach((def, i) => {
       const c = new Character(def);
-      c.position.set((i - 1.5) * 1.7, 0, 1);
+      c.position.set((i - (ROSTER.length - 1) / 2) * Math.min(1.7, 6.8 / ROSTER.length), 0, 1);
       this.scene.add(c);
       this.characters.push(c);
     });
