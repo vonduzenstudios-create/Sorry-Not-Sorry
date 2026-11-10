@@ -5,6 +5,7 @@ import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
 import type { Face, FaceOptions } from './face';
 import { ZUZU } from './zuzu';
+import { NIA } from './nia';
 
 export interface CharacterDef {
   id: string;
@@ -195,4 +196,5 @@ export const ROSTER: CharacterDef[] = [
     },
   },
   ZUZU,
+  NIA,
 ];
