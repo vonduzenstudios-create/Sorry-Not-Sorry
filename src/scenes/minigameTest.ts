@@ -1,4 +1,4 @@
-import { MAX_SEATS, ROSTER } from '../characters/roster';
+import { debugCast } from '../characters/cast';
 import type { Game } from '../core/game';
 import type { Scene } from '../core/scene';
 import { MINIGAMES } from '../minigames';
@@ -16,7 +16,7 @@ export class MinigameTestScene implements Scene {
   enter(game: Game): void {
     const params = new URLSearchParams(location.search);
     const def = MINIGAMES.find((m) => m.id === params.get('id')) ?? MINIGAMES[0];
-    game.session.seats = ROSTER.slice(0, MAX_SEATS).map((d, i) => ({
+    game.session.seats = debugCast().map((d, i) => ({
       characterId: d.id,
       controller: i === 0 && params.get('play') ? game.input.keyboard : null,
     }));

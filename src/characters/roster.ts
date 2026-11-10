@@ -4,6 +4,7 @@ import { Palette } from '../render/palette';
 import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
 import type { Face, FaceOptions } from './face';
+import { GHOST } from './ghost';
 import { ZUZU } from './zuzu';
 import { NIA } from './nia';
 
@@ -197,4 +198,5 @@ export const ROSTER: CharacterDef[] = [
   },
   ZUZU,
   NIA,
+  GHOST,
 ];
