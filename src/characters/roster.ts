@@ -4,6 +4,9 @@ import { Palette } from '../render/palette';
 import { toonMesh } from '../render/toon';
 import type { Rig } from './character';
 import type { Face, FaceOptions } from './face';
+import { GHOST } from './ghost';
+import { ZUZU } from './zuzu';
+import { NIA } from './nia';
 import { JIN } from './jin';
 
 export interface CharacterDef {
@@ -194,5 +197,8 @@ export const ROSTER: CharacterDef[] = [
       rig.torso.add(belt);
     },
   },
+  ZUZU,
+  NIA,
+  GHOST,
   JIN,
 ];

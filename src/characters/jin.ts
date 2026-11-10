@@ -5,11 +5,11 @@ import type { CharacterDef } from './roster';
 const HEAD_Y = 0.38;
 const HEAD_R = 0.42;
 const HAIR = 0x221c2c;
-const TEAL = 0x45c4d6;
+const JACKET = 0x5b8cf0;
 const TANGERINE = 0xffa24c;
 
 /**
- * Jin: swept-up quiff, round glasses, a teal bomber jacket and headphones
+ * Jin: swept-up quiff, round glasses, a cobalt bomber jacket and headphones
  * slung around his neck. Kept in its own file so the roster only needs one line.
  */
 export const JIN: CharacterDef = {
@@ -17,10 +17,10 @@ export const JIN: CharacterDef = {
   name: 'Jin',
   tagline: 'Speedruns everything.',
   colors: {
-    accent: TEAL,
+    accent: JACKET,
     skin: 0xf6d7b6,
-    top: TEAL,
-    sleeves: TEAL,
+    top: JACKET,
+    sleeves: JACKET,
     bottom: 0x4a4860,
     shoes: 0xffffff,
   },
@@ -116,7 +116,7 @@ export const JIN: CharacterDef = {
       cup.rotation.set(Math.PI / 2 - 0.5, 0, side * 0.5);
       cup.position.set(side * 0.2, 0.6, 0.17);
       rig.torso.add(cup);
-      const pad = toonMesh(new THREE.CircleGeometry(0.065, 16), TEAL, { outline: false });
+      const pad = toonMesh(new THREE.CircleGeometry(0.065, 16), JACKET, { outline: false });
       pad.rotation.copy(cup.rotation);
       pad.rotateX(-Math.PI / 2);
       pad.position.copy(cup.position).add(new THREE.Vector3(0, 0.036, 0).applyEuler(cup.rotation));
