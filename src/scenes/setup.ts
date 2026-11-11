@@ -13,6 +13,7 @@ const BOARDS = [
   { id: 'pirate', name: 'Pirate Cove', ready: true },
   { id: 'western', name: 'Dusty Gulch', ready: true },
   { id: 'space', name: 'Star Station', ready: true },
+  { id: 'mountain', name: 'Frostbite Peak', ready: true },
 ];
 const TURNS = [10, 15, 20];
 

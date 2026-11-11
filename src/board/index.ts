@@ -1,3 +1,4 @@
+import { frostbitePeak } from './mountain';
 import { dustyGulch } from './western';
 import { pirateCove } from './pirate';
 import { starStation } from './space';
@@ -8,4 +9,5 @@ export const BOARDS: Record<string, () => BoardDef> = {
   pirate: pirateCove,
   western: dustyGulch,
   space: starStation,
+  mountain: frostbitePeak,
 };
