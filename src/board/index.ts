@@ -1,3 +1,5 @@
+import { frostbitePeak } from './mountain';
+import { hollowHill } from './manor';
 import { dustyGulch } from './western';
 import { jadeTemple } from './jungle';
 import { pirateCove } from './pirate';
@@ -10,4 +12,6 @@ export const BOARDS: Record<string, () => BoardDef> = {
   western: dustyGulch,
   space: starStation,
   jungle: jadeTemple,
+  mountain: frostbitePeak,
+  manor: hollowHill,
 };
